@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medrag"
+version = "0.1.0"
+description = "医学多模态病灶检测与报告生成系统（RAG + Qwen3-VL）"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# ── 骨架阶段（walking skeleton）真正用到的轻量依赖 ──────────────
+# 本批只装这些；端到端桩管线 + 最小 FastMCP server + 契约 + 测试均靠它们跑通。
+dependencies = [
+    "pydantic>=2.6",        # T007 共享数据契约（schema）
+    "mcp[cli]>=1.2",        # T022 FastMCP server（对外暴露 4 工具）
+    "numpy>=1.26",          # 契约里热图/坐标等数组占位
+]
+
+[project.optional-dependencies]
+# ── 数据管线（US2 数据 / a/b/c ingestion）：数据下载后再装 ────────
+data = [
+    "datasets>=2.18",       # b lavita/medical-qa-datasets、c MedTrinity-25M（HF）
+    "kagglehub>=0.2",       # a imtkaggleteam/medical-information-dataset（kaggle）
+    "datasketch>=1.6",      # MinHash/LSH 近重复去重（T039）
+    "opencv-python>=4.9",   # 绿框提取 / inpaint（T024/T026）
+    "scispacy>=0.5",        # 英文医学 NER（T041）
+]
+
+# ── 模型/训练（US1 + AutoDL GPU）：上 GPU 再装 ─────────────────
+train = [
+    "torch>=2.3",
+    "transformers>=4.46",
+    "peft>=0.11",
+    "accelerate>=0.30",
+    "deepspeed>=0.14",      # 多卡 ZeRO-2，默认关
+]
+
+# ── RAG 检索栈（US1 视觉检索 / US2 文本检索）：建库时再装 ─────────
+rag = [
+    "llama-index>=0.11",
+    "chromadb>=0.5",
+    "rank-bm25>=0.2",
+]
+
+# ── 评估 harness（US3）：评估阶段再装 ────────────────────────
+eval = [
+    "ragas>=0.2",
+    "scipy>=1.13",          # bootstrap CI / 配对显著性
+    "scikit-learn>=1.4",    # coreset K-means / silhouette
+]
+
+# ── 开发/测试 ──────────────────────────────────────────────
+dev = [
+    "pytest>=8.0",
+    "langchain-mcp-adapters>=0.1",  # 骨架冒烟测试里 LangGraph 连通（未装则 skip）
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
