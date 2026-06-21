@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-21
 
-**Status**: Draft（B/C 已定，数据/部署细节待澄清）
+**Status**: Draft（B/C 与数据/部署决策已定，待细化分工）
 
 **Input**: 基于 RAG + Qwen3-VL 的"病灶检测 + 报告生成"垂直系统，解决通用 VLM 的微小病灶特征
 湮灭与幻觉问题。本 spec 记录 WHAT/WHY；技术方案（双路融合 B、高斯退火定位 C 等 HOW）见同目录 `plan.md`。
@@ -65,17 +65,20 @@
 - **FR-002**: 系统 MUST 生成结构化诊断报告，且每条关键结论 MUST 关联可追溯证据（检索来源或 ROI）。
 - **FR-003**: 系统 MUST NOT 编造无证据支撑的医学结论；无证据时 MUST 标注不确定或拒答。
 - **FR-004**: 数据处理 MUST 将标注绿框仅用作监督标签并从模型输入抹除（训推同分布），并防范二阶（inpainting 痕迹）泄露。
-- **FR-005**: 检索 MUST 支持父子层级检索 + 文本过滤→视觉的级联 + Top-5 重排。
-- **FR-006**: 系统 MUST 提供可单独开关每个改动的评估 harness，并支持按病灶面积分层报告。
+- **FR-005**: 检索 MUST 支持 BM25+dense 混合检索（RRF 融合）+ 父子层级（AutoMerging）+ 文本过滤→视觉的两级级联 + Qwen3-VL-Reranker(cross-encoder) Top-5 重排；图像查询 MUST 走 query-adaptive（检测头草稿桥接 + 图像兜底通道）。
+- **FR-006**: 系统 MUST 提供可单独开关每个改动的配置驱动评估 harness（固定测试集+seed），按病灶面积分层报告，并以 bootstrap CI + 配对显著性检验判定"增益显著"；指标含 检测 FROC/sensitivity@FP(+mAP)、报告 域无关实体F1+关系F1、RAG ragas+recall@k/nDCG/MRR、端到端 溯源率 + 拒答正确性。
 - **FR-007**: 数据 MUST 去标识化，不得在日志/向量库明文/外发中泄露 PHI。
-- **FR-008**: 输入数据集分工 [NEEDS CLARIFICATION: a 药品/b 医学QA/c CT-QA 各自进 RAG 库还是训练，待定]。
-- **FR-009**: 部署形态 [NEEDS CLARIFICATION: 推理时是否一直带框；绿框为细边框还是填充块]。
-- **FR-010**: 运行环境 MUST 适配 AutoDL [NEEDS CLARIFICATION: 卡型/预算/多卡，待定]。
+- **FR-008**: 输入数据集分工：a 药品 / b 医学QA / c CT-QA MUST 均入 ChromaDB 并按数据集类型分 collection 存储；其中 c CT-QA 同时用于视觉训练。
+- **FR-009**: 部署形态：标注绿框为细边框；推理输入 MUST 恒为处理后无框图像（不读框走捷径）。
+- **FR-010**: 运行环境 MUST 适配 AutoDL，且 MUST 支持多卡 + DeepSpeed ZeRO-2（可关、按需开），单卡 LoRA+梯度检查点可训为底线。预算充足，资源以"保证任务完成"为准（按 AutoDL 可用选高显存卡，A100/H100 级，必要时多卡）；卡型不预先锁死，配置不被预算约束。
+- **FR-011**: 检索存储 MUST 用 ChromaDB collections 按数据集类型隔离，并支持 metadata `where` 过滤以服务「文本过滤→视觉」级联。
+- **FR-012**: 入库前数据 MUST 经 NER 覆盖率 + 多信号质量筛选（判别式 NER、中英分治、基准不含评估集实体；低覆盖但含稀有实体 MUST 软降权保留而非硬丢）。
+- **FR-013**: 系统 MUST 以 MCP server 对外暴露 generate_report / detect_lesions / retrieve_evidence / medical_qa 工具（供外部多Agent 项目作 MCP client 编排）；transport MUST 同时支持远程（HTTP/SSE + 鉴权 + TLS）与本地（stdio）；工具输出 MUST 结构化携带证据/引用，无证据时按 FR-003 标拒答/不确定，不得在传输/日志泄露 PHI（FR-007）。
 
 ### Key Entities
 
-- **CT 影像样本**: 原始（带绿框）图、清洗后（抹框）图、绿框坐标、高斯热图标签、病灶面积分层标签。
-- **知识/病例条目**: 来自药品数据集、医学QA、病例库的文本/图文条目；含 metadata（用于文本过滤）与向量。
+- **CT 影像样本**: 原始（带绿框）图、清洗后（抹框）图、绿框坐标、高斯热图标签、病灶面积分层带（<2%/2–5%/>5%）、coreset 子集划分标记（含随机种子，供复现）；检索多向量表征（`case_id` 关联报告文本向量 + 全图向量 + ROI 向量）。
+- **知识/病例条目**: 来自药品数据集、医学QA、病例库的文本/图文条目；含 metadata（用于文本过滤）与向量；去重合并来源列表（溯源）、QA `conflict` 标记、LLM 合成 `llm_merged` 标记；数据质量分、实体类型覆盖、语种、低覆盖软降权标记；父子层级关系、chunk 元数据（章节类型 / question 上下文）。
 - **检索证据**: 一次查询命中的 Top-K 条目及其分数，供报告/回答溯源。
 - **评估记录**: 模块开关配置 → 指标（faithfulness、实体F1、检测 mAP、小病灶分层等）。
 
@@ -83,15 +86,16 @@
 
 ### Measurable Outcomes
 
-- **SC-001**: 微小病灶（<2% 面积）召回相对单路 global-only 基线提升（目标待基线确定后设阈值）。
+- **SC-001**: 微小病灶（<2% 面积）召回相对单路 global-only 基线提升（目标待基线确定后设阈值；**阈值未定前不得宣称达标，作 US3 签核前阻塞门**）。
 - **SC-002**: 报告 faithfulness / 上下文精确率（ragas）相对无 RAG 基线显著提升，幻觉率下降。
-- **SC-003**: 病灶检测 mAP / sensitivity@FP 达到可展示水平（阈值待基线确定）。
-- **SC-004**: 每个核心改动（B 双路、C 定位、RAG、重排）均有相对基线的消融增益数据，可归因。
+- **SC-003**: 病灶检测 FROC/sensitivity@FP（主）+ mAP（辅）达到可展示水平（阈值待基线确定；同 SC-001 作阻塞门）。
+- **SC-004**: 每个核心改动（B 双路、C 定位、RAG、重排）均有相对基线的消融增益数据 + bootstrap 显著性，可归因。
 - **SC-005**: 全流程在 AutoDL 上可一键复现（固定种子+锁版本），他人按文档可重跑。
+- **SC-006**: MCP 对外服务安全可验证（鉴权 + TLS + 工具输入校验 + PHI 不入传输/日志），FR-013/FR-007 安全门通过。
 
 ## Assumptions
 
-- 推理时输入为无框干净 CT（真检测场景）；若部署始终带框，则 C 退化为 cv2 取框、任务改名（见 FR-009）。
-- 绿框为细边框（病灶本体可见、可 inpaint 还原）；填充块情形需换数据策略。
-- 训练用 LLaMA-Factory/ms-swift，基座 Qwen3-VL 4B 起步；GPU 为 AutoDL 单卡起步。
+- 推理时输入恒为无框干净 CT（真检测场景，已定）——C 是真贡献而非退化为 cv2 取框（见 FR-009）。
+- 绿框为细边框（已定）：病灶本体可见、可 inpaint 还原；不存在填充块遮盖情形。
+- 训练用 LLaMA-Factory/ms-swift，基座 Qwen3-VL 30B-A3B (MoE)；GPU 为 AutoDL 单卡可训起步、多卡 ZeRO-2 留开关。
 - 评估以固定测试集为准，基线为 vanilla 零样本 + 朴素 LoRA。

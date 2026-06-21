@@ -53,11 +53,11 @@ Sync Impact Report
 
 ## 技术栈与约束
 
-- 基座：Qwen3-VL（dense 4B 起步，按预算升 8B；32B/MoE 仅多卡时考虑）。
+- 基座：Qwen3-VL 30B-A3B (MoE)（激活小、单/双卡 LoRA 可训）。
 - 训练：LLaMA-Factory 或 ms-swift（原生支持多图+LoRA+DeepSpeed），**不手写训练循环**。
-  DeepSpeed 非默认：单卡 LoRA+梯度检查点优先，仅在多卡/大模型时切 ZeRO-2/3 offload。
-- 检索：Qwen3-VL-Embedding 索引 + LlamaIndex 父子层级检索 + 级联（文本过滤→视觉）+
-  Qwen3-VL-Reranker Top-5；向量库需支持标量过滤（Qdrant/Milvus）。
+  DeepSpeed 配置常备、默认关：单卡 LoRA+梯度检查点优先，多卡时切 ZeRO-2（不上 ZeRO-3）。
+- 检索：Qwen3-Embedding（文本 a/b，4B 起）/ 多模态 VL 嵌入（c）索引 + LlamaIndex 父子层级检索 + 级联（文本过滤→视觉）+
+  Qwen3-VL-Reranker Top-5；向量库用 ChromaDB（按数据集类型分 collection，支持 metadata 过滤）。
 - 评估：ragas（faithfulness/context precision）**+ 临床指标**（实体级 F1、RadGraph-F1 等）
   **+ 检测 mAP/sensitivity@FP + 小病灶分层**。单一 ragas 不足以支撑"幻觉抑制"结论。
 
