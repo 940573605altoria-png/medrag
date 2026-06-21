@@ -28,9 +28,11 @@ env/
 .claude/.credentials*
 
 # ---- Models / data / vector stores (large, not for git) ----
-data/
-datasets/
-models/
+# NOTE: anchored to repo root so they DON'T swallow source pkgs src/data, src/models.
+/data/
+/datasets/
+/models/
+/data_root/
 *.bin
 *.safetensors
 *.gguf
