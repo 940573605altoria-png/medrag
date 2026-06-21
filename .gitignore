@@ -1,0 +1,56 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ---- Virtual envs ----
+.venv/
+venv/
+env/
+# conda env lives at F:\miniconda\envs\medrag (out of tree)
+
+# ---- Env / secrets ----
+.env
+.env.*
+*.key
+*.pem
+
+# ---- Claude agent folder: keep skills, ignore local/secret state ----
+.claude/settings.local.json
+.claude/.credentials*
+
+# ---- Models / data / vector stores (large, not for git) ----
+data/
+datasets/
+models/
+*.bin
+*.safetensors
+*.gguf
+*.onnx
+*.pt
+*.pth
+.chroma/
+chroma_db/
+*.faiss
+*.index
+storage/
+vector_store/
+
+# ---- Logs / cache ----
+logs/
+*.log
+.cache/
+
+# ---- OS / IDE ----
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
