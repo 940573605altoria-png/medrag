@@ -69,17 +69,29 @@ def _bnb_4bit_config():
 
 
 def _load_model_class():
-    """取 MoE 专用加载类；老版本 transformers 不含时回退到通用 image-text 类。"""
+    """选加载类。
+
+    **优先 `AutoModelForImageTextToText`**：它按 checkpoint 的 config 自动派发到正确类——
+    既能加载 30B MoE（`Qwen3VLMoeForConditionalGeneration`），也能加载 4B/8B dense
+    （`Qwen3VLForConditionalGeneration`），避免硬选 MoE 类去加载 dense 权重而 mismatch。
+    Auto 类不可用（老 transformers）时再回退到显式类。
+    """
+    try:
+        from transformers import AutoModelForImageTextToText  # noqa: PLC0415
+
+        return AutoModelForImageTextToText
+    except ImportError:
+        pass
+
     import transformers  # noqa: PLC0415
 
     for name in ("Qwen3VLMoeForConditionalGeneration", "Qwen3VLForConditionalGeneration"):
         cls = getattr(transformers, name, None)
         if cls is not None:
             return cls
-    # 回退：通用类 + trust_remote_code（要求 transformers 够新或模型自带 code）
-    from transformers import AutoModelForImageTextToText  # noqa: PLC0415
-
-    return AutoModelForImageTextToText
+    raise RuntimeError(
+        "transformers 太旧：既无 AutoModelForImageTextToText 也无 Qwen3VL* 类，请升级"
+    )
 
 
 def load_base(config: Qwen3VLConfig | None = None) -> tuple[Any, Any]:

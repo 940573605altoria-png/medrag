@@ -28,16 +28,23 @@ export HF_HOME="${HF_HOME:-$DATA_ROOT/.cache/huggingface}"
 export MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-$DATA_ROOT/.cache/modelscope}"
 mkdir -p "$HF_HOME" "$MODELSCOPE_CACHE"
 
-echo "==> [3/5] 校验 torch / CUDA（镜像应已装）"
+echo "==> [3/5] 校验/安装 torch（裸镜像会自动装匹配 CUDA 的 torch）"
+# TORCH_CUDA: 选 PyTorch 轮子的 CUDA 版（cu124 适配 Ada/RTX4090 + 新驱动；按需改 cu121/cu128）
+TORCH_CUDA="${TORCH_CUDA:-cu124}"
+if ! python -c "import torch" 2>/dev/null; then
+  echo "  未检测到 torch → 安装 torch+torchvision（$TORCH_CUDA）"
+  pip install torch torchvision --index-url "https://download.pytorch.org/whl/$TORCH_CUDA"
+fi
 python - <<'PY'
 import sys
 try:
     import torch
     print(f"  torch {torch.__version__} cuda={torch.version.cuda} avail={torch.cuda.is_available()} n={torch.cuda.device_count()}")
     if not torch.cuda.is_available():
-        print("  !! CUDA 不可用——检查镜像/驱动后再继续", file=sys.stderr)
+        print("  !! CUDA 不可用——检查驱动/轮子 CUDA 版（改 TORCH_CUDA）后重试", file=sys.stderr)
+        sys.exit(1)
 except ImportError:
-    print("  !! 未检测到 torch——请先按 runbook 装匹配 CUDA 的 torch", file=sys.stderr)
+    print("  !! torch 安装失败——手动装匹配 CUDA 的 torch 后重跑", file=sys.stderr)
     sys.exit(1)
 PY
 

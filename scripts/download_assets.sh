@@ -15,14 +15,16 @@ export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 export HF_HOME="${HF_HOME:-$DATA_ROOT/.cache/huggingface}"
 export MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-$DATA_ROOT/.cache/modelscope}"
 
+# 默认 30B（真跑）；4090 冒烟时覆盖： MEDRAG_BASE_MODEL_MS=Qwen/Qwen3-VL-4B-Instruct
 MODEL_ID="${MEDRAG_BASE_MODEL_MS:-Qwen/Qwen3-VL-30B-A3B-Instruct}"
 
 download_weights() {
-  echo "==> 权重：$MODEL_ID → $WEIGHTS_DIR（ModelScope，约 60GB，慢）"
+  local name; name="$(basename "$MODEL_ID")"   # 本地目录名随模型走，避免小/大模型互相覆盖
+  local dest="$WEIGHTS_DIR/$name"
+  echo "==> 权重：$MODEL_ID → $dest（ModelScope；30B 约 60GB，4B 约 8GB）"
   mkdir -p "$WEIGHTS_DIR"
-  # ModelScope 上 Qwen 官方与 HF 同名；下到本地目录后把 MEDRAG_BASE_MODEL 指向它。
-  modelscope download --model "$MODEL_ID" --local_dir "$WEIGHTS_DIR/Qwen3-VL-30B-A3B-Instruct"
-  echo "  完成。冒烟时： export MEDRAG_BASE_MODEL=$WEIGHTS_DIR/Qwen3-VL-30B-A3B-Instruct"
+  modelscope download --model "$MODEL_ID" --local_dir "$dest"
+  echo "  完成。冒烟时： export MEDRAG_BASE_MODEL=$dest"
 }
 
 download_data() {

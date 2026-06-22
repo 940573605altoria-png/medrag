@@ -8,14 +8,16 @@
 
 ---
 
-## 0. 实例选择（按"保证完成任务"，预算充足）
+## 0. 两种实例档位
 
-- **GPU**：基座 Qwen3-VL 30B-A3B 是 MoE，bf16 权重约 **60GB**。
-  - 单卡 **A100/H100 80GB**：bf16 直接装得下（推理/LoRA 都够）——**推荐**。
-  - 单卡 **48GB（A6000/L20）**：用 `--quant 4bit` 或 FP8 权重。
-  - 多卡：`device_map="auto"` 自动分片；训练时 launch 脚本自动切 ZeRO-2。
-- **镜像**：选 AutoDL 官方 **PyTorch** 镜像（torch+CUDA 预装），省得自己配 CUDA。
-- **数据盘**：确保 `/root/autodl-tmp` 有 ≥120GB 余量（权重 60G + 数据 + 缓存）。
+**A. 真跑 30B（最终）**：基座 Qwen3-VL 30B-A3B（MoE），bf16 权重约 **60GB**。
+- GPU：单卡 **A100/H100 80GB** bf16 直接跑（推理/LoRA 都够）；48GB 卡用 `--quant 4bit`/FP8；多卡 `device_map=auto` 分片、训练自动 ZeRO-2。
+- 数据盘 `/root/autodl-tmp` ≥ **120GB**（权重 60G + 数据 + 缓存）。
+
+**B. 当前 4090 验证代码路径（先做这个）**：实测 **RTX 4090 24GB / 数据盘 50GB / 裸镜像无 torch**。
+30B 在此放不下，所以**用小号 dense 模型 `Qwen/Qwen3-VL-4B-Instruct`（~8GB）验证加载器/管线/脚本全通**，
+锁定的 30B 基座不改，留给升级后的实例真跑。4B 在 24GB/50GB 上很宽裕。
+> 镜像无 torch 也没关系——`autodl_setup.sh` 会自动装匹配 CUDA 的 torch（默认 `cu124`，适配 Ada/4090）。
 
 ## 1. 探测当前实例（先跑这个，把输出贴回）
 
@@ -42,14 +44,13 @@ git clone <你的仓库地址> medrag && cd medrag
 
 ```bash
 bash scripts/autodl_setup.sh
+# 4090 裸镜像默认装 cu124 torch；如驱动/卡需要别的 CUDA 版：
+#   TORCH_CUDA=cu121 bash scripts/autodl_setup.sh
 ```
 
-做了：学术加速 + HF 镜像、建数据盘目录、把缓存引到数据盘、校验 torch/CUDA、
-装 medrag 包 + transformers/accelerate/peft/modelscope/pillow（**不动镜像里的 torch**），
-最后跑 **L0 冒烟**（环境 + 骨架管线，不下大模型）。看到 `L0 PASS` 即环境 OK。
-
-> 若校验报"未检测到 torch"：镜像没带 torch，先按 CUDA 版本装，例如
-> `pip install torch --index-url https://download.pytorch.org/whl/cu121`（cu121 换成你的）。
+做了：学术加速 + HF 镜像、建数据盘目录、把缓存引到数据盘、**校验/自动安装 torch**（裸镜像）、
+装 medrag 包 + transformers/accelerate/peft/modelscope/pillow，最后跑 **L0 冒烟**（环境 + 骨架管线，
+不下大模型）。看到 `L0 PASS` 即环境 OK。
 
 把环境变量写进 `~/.bashrc` 长期生效（可选）：
 ```bash
@@ -60,24 +61,32 @@ export MODELSCOPE_CACHE=/root/autodl-tmp/.cache/modelscope
 EOF
 ```
 
-## 4. 下权重（约 60GB，慢；可后台跑）
+## 4. 下权重
 
+**B 档（当前 4090，下小模型 ~8GB）：**
+```bash
+MEDRAG_BASE_MODEL_MS=Qwen/Qwen3-VL-4B-Instruct bash scripts/download_assets.sh weights
+export MEDRAG_BASE_MODEL=/root/autodl-tmp/weights/Qwen3-VL-4B-Instruct
+```
+**A 档（升级实例后，下 30B ~60GB，可后台跑）：**
 ```bash
 bash scripts/download_assets.sh weights
-# 完成后把基座指向本地目录：
 export MEDRAG_BASE_MODEL=/root/autodl-tmp/weights/Qwen3-VL-30B-A3B-Instruct
 ```
 
 ## 5. 模型冒烟（L1）
 
 ```bash
-# 80GB 卡：bf16 直接
+# B 档（4090，4B）——也可不下权重直接在线拉：
+python scripts/smoke_gpu.py --with-model --model-id Qwen/Qwen3-VL-4B-Instruct
+# A 档（80GB 卡，30B bf16）：
 python scripts/smoke_gpu.py --with-model
-# 显存紧（48GB）：4bit
+# 显存紧（48GB 卡跑 30B）：
 python scripts/smoke_gpu.py --with-model --quant 4bit
 ```
 
-看到 `L1 PASS` + 一段推理输出 + `peak VRAM` 即基座加载/推理通。**本批目标达成。**
+看到 `L1 PASS` + 一段推理输出 + `peak VRAM` 即基座加载/推理通。**本批目标达成**
+（4B 验证了加载器/管线/脚本链路；30B 真跑在升级实例后同命令、换 model-id 即可）。
 
 ## 6.（可选，US1 预备）下数据集
 

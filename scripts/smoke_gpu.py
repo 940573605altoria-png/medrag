@@ -50,7 +50,7 @@ def level0() -> None:
     print("L0 PASS\n")
 
 
-def level1(quant: str | None, max_new_tokens: int) -> None:
+def level1(quant: str | None, max_new_tokens: int, model_id: str | None) -> None:
     """加载基座 + 一次推理。"""
     print("=== L1: Qwen3-VL 基座加载 + 推理 ===")
     import torch  # noqa: F401  (确保有 torch 才进 L1)
@@ -59,10 +59,10 @@ def level1(quant: str | None, max_new_tokens: int) -> None:
 
     from src.models.qwen3vl import Qwen3VLConfig, load_base, quick_infer, resolve_model_id
 
-    model_id = resolve_model_id()
+    model_id = resolve_model_id(model_id)
     print(f"model_id     : {model_id}  (quant={quant})")
 
-    cfg = Qwen3VLConfig(quant=quant)
+    cfg = Qwen3VLConfig(model_id=model_id, quant=quant)
     print("loading ...（首次会下载/读取权重，耐心等）")
     model, processor = load_base(cfg)
     print(f"loaded       : {type(model).__name__} on {getattr(model, 'device', '?')}")
@@ -82,13 +82,16 @@ def level1(quant: str | None, max_new_tokens: int) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="medrag GPU 冒烟测试（分级）")
     ap.add_argument("--with-model", action="store_true", help="加跑 L1（加载基座+推理）")
+    ap.add_argument("--model-id", default=None,
+                    help="覆盖基座（如 Qwen/Qwen3-VL-4B-Instruct 或本地权重目录）；"
+                         "不给则用 MEDRAG_BASE_MODEL 或默认 30B")
     ap.add_argument("--quant", choices=["fp8", "4bit"], default=None, help="L1 量化模式")
     ap.add_argument("--max-new-tokens", type=int, default=32)
     args = ap.parse_args()
 
     level0()
     if args.with_model:
-        level1(args.quant, args.max_new_tokens)
+        level1(args.quant, args.max_new_tokens, args.model_id)
     print("ALL SMOKE PASS")
     return 0
 
