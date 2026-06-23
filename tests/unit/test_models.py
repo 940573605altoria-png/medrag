@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from src.contracts.schemas import BBox, ROI
-from src.models import loc_head, losses, qwen3vl
+from src.models import fusion, loc_head, losses, qwen3vl
 
 
 def test_module_imports_without_torch():
@@ -130,6 +130,52 @@ def test_loc_head_forward_shape():
     pytest.importorskip("torch")
     import torch
     head = loc_head.build_localization_head(loc_head.LocHeadConfig(in_dim=8, hidden=16, upscale=2))
-    out = head(torch.randn(2, 16, 8))           # N=16 → 4x4 grid，upscale 2 → 8x8
+    with torch.no_grad():
+        out = head(torch.randn(2, 16, 8))       # N=16 → 4x4 grid，upscale 2 → 8x8
     assert tuple(out.shape) == (2, 1, 8, 8)
     assert float(out.min()) >= 0.0 and float(out.max()) <= 1.0
+
+
+# ── T030 B 双路融合（需 torch；本机 skip，AutoDL 真跑）──────────────
+
+def test_fusion_module_imports_without_torch():
+    importlib.reload(fusion)
+    assert fusion.FUSION_MODES == ("add", "concat", "multi_image")
+    assert fusion.FusionConfig().alpha_init == 0.0
+
+
+def test_fusion_add_is_identity_at_init():
+    """B 核心性质：门控 α 初始 0 → 融合恒等 → 输出==全局 token（不破坏预训练分布）。"""
+    torch = pytest.importorskip("torch")
+    fuse = fusion.build_fusion(fusion.FusionConfig(mode="add", dim=8))
+    g = torch.randn(2, 5, 8)
+    roi = torch.randn(2, 5, 8)
+    with torch.no_grad():
+        out = fuse(g, roi)
+    assert torch.allclose(out, g)               # α=0 → 残差为 0 → 恒等
+
+
+def test_fusion_add_changes_after_alpha_set():
+    torch = pytest.importorskip("torch")
+    fuse = fusion.build_fusion(fusion.FusionConfig(mode="add", dim=8))
+    with torch.no_grad():
+        fuse.alpha.fill_(1.0)                   # 打开门控
+    g, roi = torch.randn(2, 5, 8), torch.randn(2, 5, 8)
+    with torch.no_grad():
+        out = fuse(g, roi)
+    assert not torch.allclose(out, g)           # 此时 ROI 特征真的加进来了
+
+
+def test_fusion_concat_token_count():
+    torch = pytest.importorskip("torch")
+    fuse = fusion.build_fusion(fusion.FusionConfig(mode="concat", dim=8))
+    g, roi = torch.randn(2, 5, 8), torch.randn(2, 3, 8)
+    out = fuse(g, roi)
+    assert tuple(out.shape) == (2, 8, 8)        # 5+3 个 token，特征维不变
+
+
+def test_fusion_add_requires_same_shape():
+    torch = pytest.importorskip("torch")
+    fuse = fusion.build_fusion(fusion.FusionConfig(mode="add", dim=8))
+    with pytest.raises(ValueError, match="同形"):
+        fuse(torch.randn(2, 5, 8), torch.randn(2, 3, 8))
