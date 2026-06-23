@@ -86,7 +86,7 @@ shell commands, and other important information, read the current plan
 - 激活环境：`conda activate F:\miniconda\envs\medrag`。
 - **本机装重依赖的坑**：默认/清华镜像源会 `SSL UNEXPECTED_EOF`（本机 Clash TUN 全局拦截，`unset *_proxy` 也绕不开）。**正解**：保留代理走官方源 `pip install <pkg> -i https://pypi.org/simple`（环境变量带 `http(s)_proxy=http://127.0.0.1:7890`）。已这样装好本机：`opencv-python-headless`、`scikit-learn`、`chromadb`（仅本机验证用；AutoDL 靠 `autodl_setup.sh`）。
 - **写代码方法论（沿用）**：模块用**守卫导入**（torch/cv2/sklearn/chromadb 缺了也能 `import`，调用才报清晰错）；**纯逻辑/numpy 部分本地单测跑绿**，重依赖功能测用 `pytest.importorskip` + 在 AutoDL 真跑。本机跑测：上面 PATH 段 + `python -m pytest -q`。
-- **GitHub 同步已打通（2026-06-23）**：本地 `main` 为权威源。本地→远程：用户在**自己终端**跑 `scripts\push_github.ps1 -Proxy http://127.0.0.1:7890`（`--force-with-lease` 推 `main`，首次弹窗登录）。本助手沙箱推不了（无 TTY），所以**改完代码先 commit，由用户 push**。
+- **GitHub 同步已打通（2026-06-23）**：本地 `main` 为权威源。本地→远程：用户在**自己终端**先 `cd f:\vscode\rag_workspace_claude`（仓库根，即 `scripts\` 的上一级——因命令用相对路径），再跑 `powershell -ExecutionPolicy Bypass -File scripts\push_github.ps1 -Proxy http://127.0.0.1:7890`（`--force-with-lease` 推 `main`，首次弹窗登录）。脚本内部会自己 `Set-Location` 到仓库根 + 把 medrag 的 git 加进 PATH，故无需手动设 PATH；不想 cd 可用绝对路径 `-File f:\vscode\rag_workspace_claude\scripts\push_github.ps1`。本助手沙箱推不了（无 TTY），所以**改完代码先 commit，由用户 push**。
 - **AutoDL（云 GPU 端，已在用）**：conda env 也叫 `medrag`（Py3.11）；**干净仓在 `/root/medrag-clean`（git clone，已弃用手拷的乱仓 `/root/medrag-1`）**；同步靠 `cd /root/medrag-clean && git pull`。数据盘 `/root/autodl-tmp`(50G)；`HF_HOME=/root/autodl-tmp/.cache/huggingface`、`HF_ENDPOINT=https://hf-mirror.com`。学术加速**按渠道**开关：清华源/hf-mirror/ModelScope 直连(关)，github/hf官网/kaggle 才 `turbo_on`(=`source /etc/network_turbo`)。装依赖：`bash scripts/autodl_setup.sh`（已含 torch 校验 + opencv/sklearn/pytest/chromadb）。
 
 ## 📂 事实源指针（详情看这些文件，别凭本看板记忆下结论）
