@@ -10,9 +10,21 @@ import math
 
 import pytest
 
-from src.contracts.schemas import AreaBand, BBox, DetectionResult, ROI
+from src.contracts.schemas import (
+    AbstainReason,
+    AreaBand,
+    BBox,
+    DetectionResult,
+    EvidenceItem,
+    Finding,
+    ReportResult,
+    ROI,
+)
 from src.eval import metrics_detection as md
+from src.eval import metrics_e2e as me
+from src.eval import metrics_rag as mrag
 from src.eval import metrics_report as mr
+from src.eval import stats as st
 
 
 def _roi(x1, y1, x2, y2, *, frac=0.01, conf=1.0):
@@ -175,3 +187,112 @@ def test_report_metrics_optional_relation():
     assert not any(k.startswith("relation_") for k in out["metrics"])
     out2 = mr.report_metrics(pairs, ner_fn=_words, rel_fn=lambda t: [])
     assert "relation_f1" in out2["metrics"]
+
+
+# ── RAG 检索指标（T051，手算对拍）──────────────────────────────────
+
+def test_recall_mrr_ndcg_known():
+    retrieved = ["d1", "d2", "d3", "d4"]
+    rel = {"d2", "d4"}
+    assert mrag.recall_at_k(retrieved, rel, 2) == pytest.approx(0.5)
+    assert mrag.recall_at_k(retrieved, rel, 4) == pytest.approx(1.0)
+    assert mrag.mrr(retrieved, rel) == pytest.approx(0.5)  # 首个相关在 rank2
+    # nDCG@4: dcg=1/log2(3)+1/log2(5), idcg=1/log2(2)+1/log2(3)
+    dcg = 1 / math.log2(3) + 1 / math.log2(5)
+    idcg = 1 / math.log2(2) + 1 / math.log2(3)
+    assert mrag.ndcg_at_k(retrieved, rel, 4) == pytest.approx(dcg / idcg)
+
+
+def test_retrieval_metrics_empty_relevant_is_one():
+    assert mrag.recall_at_k(["a"], set(), 1) == 1.0
+    assert mrag.ndcg_at_k(["a"], set(), 1) == 1.0
+
+
+def test_retrieval_metrics_aggregate():
+    per_query = [(["d1", "d2"], {"d2"}), (["d3", "d4"], {"d3"})]
+    out = mrag.retrieval_metrics(per_query, ks=[1, 2])
+    # recall@1: q1 d1 miss→0, q2 d3 hit→1 → 平均 0.5
+    assert out["metrics"]["recall@1"] == pytest.approx(0.5)
+    assert out["metrics"]["recall@2"] == pytest.approx(1.0)
+
+
+def test_ragas_config_reads_env_and_requires_key(monkeypatch):
+    monkeypatch.delenv("MEDRAG_RAGAS_JUDGE_MODEL", raising=False)
+    assert mrag.RagasConfig().judge_model == mrag.DEFAULT_JUDGE_MODEL  # qwen-max
+    monkeypatch.setenv("MEDRAG_RAGAS_JUDGE_MODEL", "qwen3-max")
+    assert mrag.RagasConfig().judge_model == "qwen3-max"
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError):
+        mrag.RagasConfig().api_key()
+
+
+# ── 端到端指标（T052）──────────────────────────────────────────────
+
+def _ev():
+    return EvidenceItem(source_id="s1", citation="c", score=0.9)
+
+
+def test_traceability_rate():
+    grounded = Finding(text="肝占位", evidence=[_ev()])
+    uncertain_ungrounded = Finding(text="待定", uncertain=True)
+    reports = [ReportResult(findings=[grounded, uncertain_ungrounded])]
+    out = me.traceability_rate(reports)
+    assert out["traceability_rate"] == pytest.approx(0.5)         # 2 条中 1 条锚定
+    assert out["grounded_excl_uncertain"] == pytest.approx(1.0)   # 断言性结论全锚定
+
+
+def test_abstention_metrics_confusion():
+    # 该拒[T,T,F,F] vs 实拒[T,F,F,T]: TP=1,FP=1,FN=1,TN=1
+    out = me.abstention_metrics([True, False, False, True], [True, True, False, False])
+    assert out["abstain_precision"] == pytest.approx(0.5)
+    assert out["abstain_recall"] == pytest.approx(0.5)
+    assert out["abstain_accuracy"] == pytest.approx(0.5)
+
+
+def test_e2e_metrics_with_gold_abstain():
+    r = ReportResult(findings=[Finding(text="x", evidence=[_ev()])],
+                     abstain=True, abstain_reason=AbstainReason.NO_EVIDENCE)
+    out = me.e2e_metrics([r], gold_abstain=[True])
+    assert out["metrics"]["abstain_recall"] == pytest.approx(1.0)
+    assert "traceability_rate" in out["metrics"]
+
+
+# ── 显著性 / CI（T053）─────────────────────────────────────────────
+
+def test_bootstrap_ci_constant():
+    ci = st.bootstrap_ci([5.0, 5.0, 5.0, 5.0], n_resamples=200, seed=0)
+    assert ci.point == ci.low == ci.high == pytest.approx(5.0)
+
+
+def test_paired_permutation_identical_vs_separated():
+    ident = st.paired_permutation_test([1, 2, 3, 4], [1, 2, 3, 4], n_resamples=500, seed=0)
+    assert ident == pytest.approx(1.0)
+    a = [1.0] * 8
+    b = [0.0] * 8
+    p = st.paired_permutation_test(a, b, n_resamples=2000, seed=0)
+    assert p < 0.05  # 系统性差异 → 显著
+
+
+def test_paired_bootstrap_delta_ci_and_significance():
+    a = [0.8, 0.9, 0.85, 0.95, 0.88]
+    b = [0.5, 0.55, 0.52, 0.6, 0.58]
+    ci = st.paired_bootstrap_delta_ci(a, b, n_resamples=500, seed=0)
+    assert ci.point > 0
+    assert st.is_significant(ci)  # CI 不含 0
+    assert not st.is_significant(st.CI(point=0.0, low=-0.1, high=0.2, level=0.95))
+
+
+def test_mcnemar_counts_and_empty():
+    a = [True, True, False, False, False]
+    b = [True, False, True, True, False]
+    out = st.mcnemar_test(a, b)
+    assert out["b01"] == 2.0  # a 错 b 对
+    assert out["b10"] == 1.0  # a 对 b 错
+    assert st.mcnemar_test([True, True], [True, True])["p_value"] == 1.0  # 无分歧
+
+
+def test_stats_shape_mismatch_raises():
+    with pytest.raises(ValueError):
+        st.paired_bootstrap_delta_ci([1, 2], [1, 2, 3])
+    with pytest.raises(ValueError):
+        st.paired_permutation_test([1], [1, 2])
