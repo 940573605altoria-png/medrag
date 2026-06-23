@@ -9,6 +9,22 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **Tests**: plan.md 明确 `pytest（逻辑）+ 固定测试集评估 harness`，故含针对性单元/集成测试任务（非全 TDD）。
 
+---
+
+## 📍 实现进度快照（2026-06-23，冷启动看这里；权威叙述见根 CLAUDE.md 看板）
+
+**已完成并测绿**（本地 pytest；torch 部分在 AutoDL 真跑）：
+- 基建/骨架：T001 T003 T004 T005 T007 T011 T013 + 骨架 T020–T023（B1/B2 批）。
+- **US1 创新 C 定位链**：T024 T025 T026 T027 T028 T029 ✅。
+- **US1 创新 B**：T030 ✅ 仅 `models/fusion.py` 模块（三臂、α=0 恒等已测）；⏳ **T012 + 接进 `modeling_qwen3_vl.py` 未做**（AutoDL 交互式做）。
+- **US1 报告**：T034 ✅ `models/report.py`（引用标签强制溯源、禁编造、拒答）。
+
+**下一步建议顺序**：① T049/T050 评估指标（纯逻辑、本地可测）→ ② T014/T031/T032/T033 RAG 嵌入+检索（需嵌入模型）→ ③ T035 训练 + T036 接回管线 + T012 B 接线（均需 AutoDL/GPU）。
+
+**怎么继续**：模块守卫导入（torch/cv2/sklearn/chromadb 缺了也能 import）；纯逻辑本地 `python -m pytest -q` 跑绿，重依赖功能测 `importorskip` 留 AutoDL；改完 commit，用户 `push_github.ps1` 推，AutoDL `git pull` 验。
+
+---
+
 ## 排期原则：先总体骨架，再逐个局部（walking skeleton）
 1. **接口契约先行**（Foundational）：所有组件 coding 前先定共享数据 schema。
 2. **端到端骨架先跑通**（Phase 3，桩实现）：pipeline + 最小 MCP server 用 stub 串通端到端，锁接口/集成/服务。
@@ -42,7 +58,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [ ] T010 [P] 病灶面积分层工具（`<2%/2–5%/>5%`）于 `src/data/stratify.py`
 - [ ] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py`
 - [ ] T012 [P] vendor 并预备 patch `modeling_qwen3_vl.py`（标注 merger 后视觉 token 融合注入点）于 `src/models/modeling_qwen3_vl.py`
-- [ ] T013 ChromaDB store + collection 管理（a/b/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py`
+- [x] T013 ChromaDB store + collection 管理（a_drug/b_medqa/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py` ✅
 - [ ] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py`
 - [ ] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py`
 - [ ] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py`
@@ -73,17 +89,17 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **Independent Test**: 无框 CT 端到端带源报告，每条结论可点开证据；小病灶(<2%)召回显著高于单路 global-only 基线。
 
-- [ ] T024 [P] [US1] 绿框提取（`cv2.inRange`→坐标）于 `src/data/ct_box.py`
-- [ ] T025 [US1] 框→宽高斯热图标签于 `src/data/ct_label.py`（依赖 T024）
-- [ ] T026 [US1] inpaint 抹框 + 二阶随机区域 inpaint（抗泄露、训推同分布，FR-004）于 `src/data/ct_inpaint.py`（依赖 T024）
-- [ ] T027 [P] [US1] CT coreset 选样（面积分层 + 冻结编码器 K-means + 三档 原型/中位距/FPS + 去噪 + √簇配额）于 `src/data/coreset.py`
-- [ ] T028 [P] [US1] ViT 辅助定位头（推理无框可用）于 `src/models/loc_head.py`（实现 `DetectionResult` 契约）
-- [ ] T029 [P] [US1] CenterNet focal + Dice + σ(t) 退火损失于 `src/models/losses.py`
-- [ ] T030 [US1] B 双路融合（门控残差相加 α0/拼接/多图 三臂，merger 后 token 层）patch `src/models/modeling_qwen3_vl.py` + `src/models/fusion.py`（依赖 T011, T012）
+- [x] T024 [P] [US1] 绿框提取（`cv2.inRange`→坐标）于 `src/data/ct_box.py` ✅
+- [x] T025 [US1] 框→宽高斯热图标签于 `src/data/ct_label.py`（依赖 T024）✅
+- [x] T026 [US1] inpaint 抹框 + 二阶随机区域 inpaint（抗泄露、训推同分布，FR-004）于 `src/data/ct_inpaint.py`（依赖 T024）✅
+- [x] T027 [P] [US1] CT coreset 选样（面积分层 + 冻结编码器 K-means + 三档 原型/中位距/FPS + 去噪 + √簇配额）于 `src/data/coreset.py` ✅
+- [x] T028 [P] [US1] ViT 辅助定位头（推理无框可用）于 `src/models/loc_head.py`（实现 `DetectionResult` 契约）✅
+- [x] T029 [P] [US1] CenterNet focal + Dice + σ(t) 退火损失于 `src/models/losses.py` ✅
+- [~] T030 [US1] B 双路融合（门控残差相加 α0/拼接/多图 三臂，merger 后 token 层）patch `src/models/modeling_qwen3_vl.py` + `src/models/fusion.py`（依赖 T011, T012）— **`fusion.py` 模块 ✅；T012 vendor+接进 `modeling_qwen3_vl.py` ⏳ 待 AutoDL**
 - [ ] T031 [US1] C 图像嵌入（全图+ROI 双向量，独立冻结编码器）于 `src/rag/embed_image.py`（依赖 T013）
 - [ ] T032 [US1] c 病例多向量入库（case_id 串 报告文本+全图+ROI）于 `src/rag/index_ct.py`（依赖 T014, T031, T013）
 - [ ] T033 [US1] c 检索 query-adaptive 级联（检测头草稿桥接 + 图像主通道兜底，实现 `RetrievalResult`）于 `src/rag/cascade_visual.py`（依赖 T032）
-- [ ] T034 [US1] **真实报告生成替换 stub_report**（结构化 + 每条结论挂证据/ROI + 无证据拒答，FR-002/003，实现 `ReportResult`）于 `src/models/report.py`
+- [x] T034 [US1] **真实报告生成替换 stub_report**（结构化 + 每条结论挂证据/ROI + 无证据拒答，FR-002/003，实现 `ReportResult`）于 `src/models/report.py` ✅（引用标签 [S*]/[ROI*] 强制溯源；接回管线归 T036）
 - [ ] T035 [US1] C+B 训练脚本（LoRA、σ 退火课程、各创新点消融开关）于 `src/train/train_cb.py`（依赖 T019, T028, T029, T030）
 - [ ] T036 [US1] **把真实 detect/visual-retrieve/report 接回骨架管线**（替换 T020 桩）于 `src/serve/pipeline.py`（依赖 T028, T033, T034）
 - [ ] T037 [P] [US1] 集成测试：干净 CT → 端到端带来源报告（对骨架）+ **断言检测草稿空/错时图像兜底通道触发（FR-005）** 于 `tests/integration/test_e2e_report.py`
