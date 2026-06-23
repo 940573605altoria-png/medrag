@@ -136,8 +136,8 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **Independent Test**: 单开关一个改动 → 相对基线 delta + 分层 + bootstrap 显著性。
 
-- [ ] T049 [P] [US3] 检测指标 FROC/sensitivity@FP（主）+ mAP（辅），面积分层 于 `src/eval/metrics_detection.py`
-- [ ] T050 [P] [US3] 报告指标 域无关 实体F1+关系F1（复用 T041 NER）于 `src/eval/metrics_report.py`（依赖 T041）
+- [x] T049 [P] [US3] 检测指标 FROC/sensitivity@FP（主）+ mAP（辅），面积分层 于 `src/eval/metrics_detection.py` ✅（贪心 IoU 匹配；分层复用 `ROI.area_band`，未另建 stratify.py）
+- [x] T050 [P] [US3] 报告指标 域无关 实体F1+关系F1（复用 T041 NER）于 `src/eval/metrics_report.py` ✅（可注入 `ner_fn`/`rel_fn` 解耦 T041；纯 PRF 本地测绿，缺注入抛清晰错）
 - [ ] T051 [P] [US3] RAG 指标 ragas(faithfulness/context P-R，固定 judge temp0)+recall@k/nDCG/MRR 于 `src/eval/metrics_rag.py`
 - [ ] T052 [P] [US3] 端到端指标 证据可溯源率 + 拒答正确性(abstention P/R) 于 `src/eval/metrics_e2e.py`
 - [ ] T053 [P] [US3] bootstrap CI + 配对显著性检验 于 `src/eval/stats.py`
