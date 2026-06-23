@@ -8,7 +8,7 @@ shell commands, and other important information, read the current plan
 # 📌 项目状态看板（冷启动先读这里）
 
 > 给新会话：本节是项目的"你在哪"。读完即可继续工作。事实源文件见末尾"指针"。
-> **最后更新：2026-06-23（US1 在做：C 定位链 T024–T029 + B 融合 T030 + 报告 T034 + RAG 库 T013 已落地；GitHub 同步已打通）**
+> **最后更新：2026-06-24（US3 评估 harness 全套落地并本地测绿：T016 runner/record + T049–T054 指标/消融；归因底座闭合。US1 创新 C/报告/RAG 库已就位。⚠️ 本地领先 origin/main 4 个提交待 push）**
 
 ## 这是什么项目
 求职面试项目：基于 **RAG + Qwen3-VL** 的"**病灶检测 + 报告生成**"医学多模态垂直系统，
@@ -33,9 +33,21 @@ shell commands, and other important information, read the current plan
   - **创新 B 融合**：T030 `models/fusion.py` ✅ 模块（三臂 add/concat/multi_image；门控 α=0 初始恒等已测）。⏳ **半成品**：接进基座前向（vendor+patch `modeling_qwen3_vl.py`，T012）**未做**，留 AutoDL 对着 transformers 5.12.1 交互式做。
   - **报告生成** T034 `models/report.py` ✅：引用标签 `[S*]/[ROI*]` 强制每条结论锚证据/ROI，无据标 uncertain 或拒答（禁编造）；VLM 草稿可注入 `draft_fn` 测试。
   - **RAG 地基** T013 `rag/store.py` ✅：ChromaDB 5 collection(`a_drug/b_medqa/c_text/c_img_whole/c_img_roi`)、cosine、where 过滤、内存/持久双模。
-  - **测试**：本地全量 **56 passed / 12 skipped**（skip=缺 torch/transformers 的报错分支，AutoDL 真跑）。提交 `a241982`(T024/25) `d195d0a`(T026/27) `59e7a98`(T028/29) `5885ae9`(T030) `583954a`(T034) `6f8e7e7`(T013)。
+- [x] **US3 评估 harness 实现批（2026-06-24，本地 main 已提交、纯逻辑全测绿）——归因底座闭合**：
+  - **指标五件套**（纯 numpy，本地全测）：T049 `eval/metrics_detection.py`(贪心 IoU 匹配→FROC/sensitivity@FP+VOC mAP，按 `ROI.area_band` 分层，**未另建 stratify.py**) / T050 `eval/metrics_report.py`(域无关 micro 实体F1+关系F1，**可注入 `ner_fn`/`rel_fn` 解耦未建的 T041**) / T051 `eval/metrics_rag.py`(检索 recall@k/nDCG/MRR 纯逻辑 + ragas faithfulness/context **裁判走 DashScope qwen-max temp0，key 仅从 `DASHSCOPE_API_KEY` env 读、守卫导入**) / T052 `eval/metrics_e2e.py`(证据可溯源率+拒答 P/R) / T053 `eval/stats.py`(bootstrap CI/配对 delta CI/置换检验/McNemar，固定 seed)。
+  - **runner/消融**：T016 `eval/runner.py`(配置驱动 `run_eval(predict_fn,metric_fn)`→EvalRecord，**与模型解耦故本地可测**)+`eval/record.py`(落盘/读取/拍平) / T054 `eval/ablation.py`(`build_variants` **强制一次只改一个 flag**；逐样本配对 delta CI+置换检验；按 AreaBand 分层验"增益集中 <2% 小病灶")。
+  - **意义**：尺子已就位——任何创新一旦能跑出预测，就能立刻量化"增益+显著性+小病灶分层"。
+  - **测试**：本地全量 **94 passed / 12 skipped**（skip 详见下）。提交 `0e84a63`(T049/50) `4cf7e51`(docs) `4e34483`(T051/52/53) `2519852`(T016/T054)，**4 个待 push**。
 
-**当前位置**：US1 MVP 进行中——C 定位链 + B 融合模块 + 报告 + RAG 库已就位。**下一步见末尾"▶️ 下一步"**。
+**当前位置**：US3 评估 harness 全套就位、归因底座闭合；US1 创新 C 定位链+报告+RAG 库就位。**B 融合接线(T012+T030 后半)是 US1 MVP 最后硬骨头，待 AutoDL。下一步见末尾"▶️ 下一步"。**
+
+## ⚠️ 已写代码但本地跑不全 → 必须 AutoDL 收尾/验证（冷启动重点看这里）
+> 这些**逻辑已落、本地能 import**，但功能验证缺本地依赖（对应 9 个 torch-skipped 测试）。**别误判为"没做"，也别误判为"全验过"。**
+- **T028 `models/loc_head.py` / T029 `models/losses.py` / T030 `models/fusion.py`**：纯逻辑测过；前向/损失/门控 α=0 恒等测 **skip(本地无 torch)** → AutoDL 装 torch 真跑过那 9 个 skip。
+- **T012 + T030 后半（B 融合接线）= 还没写**：需 AutoDL vendor transformers 的 `modeling_qwen3_vl.py`，merger 输出处插 `DualPathFusion`（跑两遍视觉塔：全局+ROI）。**版本强相关，必须对着 AutoDL 实装的 transformers 5.12.1 交互式做。**
+- **T011 `models/qwen3vl.py`**：4B 已 `L1 PASS`；30B-A3B 需 A100-80G 级 + 扩盘。
+- **T013/T024–T027**：本地依赖(cv2/sklearn/chromadb)已装、测过；真实 CT 图/真实建库的功能性跑仍在 AutoDL。
+- **T051 ragas 裁判段**：检索指标本地测过；ragas 真打分需 `pip install ragas langchain-openai` + `DASHSCOPE_API_KEY`（联网，本地或 AutoDL 皆可）。
 
 ## 已敲定的核心决策（不要推翻，除非用户改主意）
 - **B 双路融合**：解决病灶特征被背景稀释。全局图 + ROI 放缩图在 merger 后的视觉 token 层融合。
@@ -84,17 +96,20 @@ shell commands, and other important information, read the current plan
 
 ## ▶️ 下一步（新会话可直接接手）
 
-**里程碑已达**：① `L1 PASS`（环境+模型冒烟，4B）；② US1 的 C 定位链(T024–T029)+B 融合模块(T030)+报告(T034)+RAG 库(T013) 已落地、本地测绿、AutoDL 验过 torch 部分。任务勾选见 [tasks.md](specs/001-medrag-detect-report/tasks.md)。
+**里程碑已达**：① `L1 PASS`（环境+模型冒烟，4B）；② US1 创新 C 定位链(T024–T029)+报告(T034)+RAG 库(T013) 落地、本地测绿；③ **US3 评估 harness 全套(T016+T049–T054)落地、归因底座闭合**。任务勾选见 [tasks.md](specs/001-medrag-detect-report/tasks.md)（注：T001–T023 基建/骨架实际已完成，旧勾选框可能未同步）。
 
-**① 先做（无需模型/可本地全测）—— 评估指标 T049–T053**：纯逻辑/numpy，回答"创新到底有没有用"。建议先 **T049 检测 FROC/sensitivity@FP（面积分层）** + **T050 报告实体F1**。同样守卫导入 + 本地 pytest 跑绿。
+**① 先做（纯逻辑、本地可全测、依赖已就绪）—— US3 收尾 T056 + T055**：
+- **T056 质量门**：把"配对检验不显著 → 阻断进下一阶段"织进 `eval/runner.py`（复用 T053/T054）。让 harness 自己会拦不靠谱改动，constitution III 彻底闭环。
+- **T055 B 三臂消融报告** `eval/ablation_b.py`：add/concat/multiimg 专项对比、出"增益集中 <2%"报告；B 真数据没出来前先用桩数据跑通框架。
 
-**② RAG 链（需嵌入模型，结构本地测/功能 AutoDL 验）**：T014 文本嵌入(Qwen3-Embedding 4B) → T031 图像嵌入(全图+ROI 双向量) → T032 多向量入库(用 T013 store) → T033 视觉级联检索。之后 T045/T046 文本 hybrid+rerank(US2)。
+**② RAG 文本链 US2（结构本地测/功能 AutoDL 验）**：T014 文本嵌入(Qwen3-Embedding 4B) → T043 父子分块 → T044 入库(用 T013 store) → T045 hybrid 检索 → T046 reranker → T047 medical_qa 接回。守卫导入、纯逻辑本地测。
 
-**③ 收口与训练（需 AutoDL/GPU）**：
-- **T012 + T030 后半**：在 AutoDL vendor transformers 的 `modeling_qwen3_vl.py`，在 merger 输出处插 `DualPathFusion` 调用（跑两遍视觉塔：全局+ROI 裁剪）。**版本相关，必须对着 AutoDL 实装的 transformers 5.12.1 交互式做。**
+**③ 收口与训练（需 AutoDL/GPU，见上"⚠️ 必须 AutoDL"节）**：
+- **T012 + T030 后半**：vendor transformers 的 `modeling_qwen3_vl.py`，merger 输出处插 `DualPathFusion`（跑两遍视觉塔：全局+ROI）。**对着 AutoDL 的 transformers 5.12.1 交互式做。** 同时过掉 T028/T029/T030 的 9 个 torch-skipped 测。
+- **T031/T032/T033**：C 图像嵌入(全图+ROI 双向量) → c 多向量入库 → 视觉级联检索。
 - **T035**：C+B 训练脚本（LoRA + σ 退火课程 + 各创新消融开关），走 LLaMA-Factory/ms-swift。
-- **T036**：把真实 detect(T028)/visual-retrieve(T033)/report(T034) 接回 `serve/pipeline.py`（改 `flags` 分支，签名不变），对骨架端到端验证。
+- **T036**：把真实 detect/visual-retrieve/report 接回 `serve/pipeline.py`（改 `flags` 分支，签名不变），对骨架端到端验证。
 
 **④ 数据/资源**：真实跑训练前需 `bash scripts/download_assets.sh data`（c=MedTrinity-25M 25M_demo 落 `/root/autodl-tmp/raw/c_ct`，**gated 需 `export HF_TOKEN=<read token>`**）。4090/24GB 只够 4B 验证代码路径；真跑 30B 需 A100-80GB 级 + 扩盘(≥120GB)，用户已确认后续升级。
 
-**待办（非阻塞）**：自上次推送后本地新增 3 提交（`5885ae9` T030 / `583954a` T034 / `6f8e7e7` T013）**待用户 push**；AutoDL `git pull` 后 `pip install scikit-learn chromadb`（旧 setup 没装全）再 `python -m pytest tests/unit/ -q` 复验。
+**待办（非阻塞）**：本地领先 origin/main **4 个提交待用户 push**（`0e84a63` T049/50 / `4cf7e51` docs / `4e34483` T051/52/53 / `2519852` T016/T054）；AutoDL `git pull` 后确保 `pip install scikit-learn chromadb`（旧 setup 没装全），ragas 真跑再 `pip install ragas langchain-openai`，然后 `python -m pytest tests/unit/ -q` 复验。

@@ -11,15 +11,21 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 ---
 
-## 📍 实现进度快照（2026-06-23，冷启动看这里；权威叙述见根 CLAUDE.md 看板）
+## 📍 实现进度快照（2026-06-24，冷启动看这里；权威叙述见根 CLAUDE.md 看板）
 
-**已完成并测绿**（本地 pytest；torch 部分在 AutoDL 真跑）：
-- 基建/骨架：T001 T003 T004 T005 T007 T011 T013 + 骨架 T020–T023（B1/B2 批）。
+**已完成并测绿**（本地 pytest **94 passed / 12 skipped**；torch 部分在 AutoDL 真跑）：
+- 基建/骨架：T001 T002 T003 T004 T005 T006 T007 T011 T013 + 桩端到端骨架 T020–T023（B1/B2 批）。
 - **US1 创新 C 定位链**：T024 T025 T026 T027 T028 T029 ✅。
 - **US1 创新 B**：T030 ✅ 仅 `models/fusion.py` 模块（三臂、α=0 恒等已测）；⏳ **T012 + 接进 `modeling_qwen3_vl.py` 未做**（AutoDL 交互式做）。
 - **US1 报告**：T034 ✅ `models/report.py`（引用标签强制溯源、禁编造、拒答）。
+- **US3 评估 harness（全套，归因底座闭合）**：T016 runner/record + T049 检测 + T050 报告F1 + T051 RAG指标 + T052 端到端 + T053 显著性 + T054 消融矩阵 ✅。
 
-**下一步建议顺序**：① T049/T050 评估指标（纯逻辑、本地可测）→ ② T014/T031/T032/T033 RAG 嵌入+检索（需嵌入模型）→ ③ T035 训练 + T036 接回管线 + T012 B 接线（均需 AutoDL/GPU）。
+**⚠️ 已写代码但本地跑不全、必须 AutoDL 验证**（对应 9 个 torch-skipped 测）：
+- T028 `loc_head.py` / T029 `losses.py` / T030 `fusion.py` 的前向/损失/门控测 → AutoDL 装 torch 真跑。
+- **T012 + T030 后半（B 融合接线）= 还没写**：AutoDL vendor transformers 5.12.1 的 `modeling_qwen3_vl.py` 交互式插 `DualPathFusion`。
+- T011 4B 已 L1 PASS；30B 需 A100-80G。T051 ragas 裁判段需 `ragas`+`DASHSCOPE_API_KEY`。
+
+**下一步建议顺序**：① **T056 质量门 + T055 B消融报告**（纯逻辑、本地可测、依赖已就绪）→ ② US2 文本 RAG 链 T014/T043/T044/T045/T046/T047（结构本地测/功能 AutoDL）→ ③ T012+T030后半 / T031/T032/T033 / T035 训练 / T036 接回管线（均需 AutoDL/GPU）。
 
 **怎么继续**：模块守卫导入（torch/cv2/sklearn/chromadb 缺了也能 import）；纯逻辑本地 `python -m pytest -q` 跑绿，重依赖功能测 `importorskip` 留 AutoDL；改完 commit，用户 `push_github.ps1` 推，AutoDL `git pull` 验。
 
@@ -39,12 +45,12 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 ## Phase 1: Setup（共享基建）
 
-- [ ] T001 按 plan.md 结构创建模块骨架 `src/{config,contracts,data,models,train,rag,eval,serve}/` 与 `tests/{unit,integration}/`（含 `__init__.py`）
-- [ ] T002 在 `pyproject.toml` 声明并锁版本依赖（torch、transformers、LLaMA-Factory/ms-swift、peft、deepspeed、llama-index、chromadb、rank_bm25、datasketch、ragas、scispacy/medspacy、mcp[fastmcp]、scipy、scikit-learn、opencv-python）
-- [ ] T003 [P] 全局配置加载 + 可复现（固定 seed、确定性开关）于 `src/config/config.py`、`src/config/seed.py`
-- [ ] T004 [P] run-record/版本化日志工具（config→metrics、模型/数据版本留痕）于 `src/config/run_record.py`
-- [ ] T005 [P] AutoDL 脚手架（conda env 复刻、`/root/autodl-tmp` 数据盘布局、学术加速）于 `scripts/autodl_setup.sh`
-- [ ] T006 [P] 多卡启动 + 断点续训（DeepSpeed ZeRO-2、对卡数自适应、默认可关）于 `scripts/launch_train.sh`、`scripts/resume.sh`
+- [x] T001 按 plan.md 结构创建模块骨架 `src/{config,contracts,data,models,train,rag,eval,serve}/` 与 `tests/{unit,integration}/`（含 `__init__.py`）✅
+- [x] T002 在 `pyproject.toml` 声明并锁版本依赖（torch、transformers、LLaMA-Factory/ms-swift、peft、deepspeed、llama-index、chromadb、rank_bm25、datasketch、ragas、scispacy/medspacy、mcp[fastmcp]、scipy、scikit-learn、opencv-python）✅
+- [x] T003 [P] 全局配置加载 + 可复现（固定 seed、确定性开关）于 `src/config/config.py`、`src/config/seed.py` ✅
+- [x] T004 [P] run-record/版本化日志工具（config→metrics、模型/数据版本留痕）于 `src/config/run_record.py` ✅
+- [x] T005 [P] AutoDL 脚手架（conda env 复刻、`/root/autodl-tmp` 数据盘布局、学术加速）于 `scripts/autodl_setup.sh` ✅
+- [x] T006 [P] 多卡启动 + 断点续训（DeepSpeed ZeRO-2、对卡数自适应、默认可关）于 `scripts/launch_train.sh`、`scripts/resume.sh` ✅
 
 ---
 
@@ -52,11 +58,11 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **⚠️ CRITICAL**: 未完成前，骨架与 user story 均不得开工
 
-- [ ] T007 **定义共享数据契约/接口 schema**（`ROI`/`DetectionResult`(热图/框/面积带/置信)、`EvidenceItem`(source_id/score/citation/modality)、`RetrievalResult`(含 abstain)、`ReportResult`(结构化+每条结论证据链+不确定标注)、MCP `ToolIO`、`EvalRecord`、`KnowledgeNode`/`CTSample` 元数据）于 `src/contracts/schemas.py`
+- [x] T007 **定义共享数据契约/接口 schema**（`ROI`/`DetectionResult`(热图/框/面积带/置信)、`EvidenceItem`(source_id/score/citation/modality)、`RetrievalResult`(含 abstain)、`ReportResult`(结构化+每条结论证据链+不确定标注)、MCP `ToolIO`、`EvalRecord`、`KnowledgeNode`/`CTSample` 元数据）于 `src/contracts/schemas.py` ✅
 - [ ] T008 实现 a/b/c 原始数据 ingestion 加载器于 `src/data/ingest.py`
 - [ ] T009 [P] PHI 去标识化（FR-007）于 `src/data/deid.py`
 - [ ] T010 [P] 病灶面积分层工具（`<2%/2–5%/>5%`）于 `src/data/stratify.py`
-- [ ] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py`
+- [x] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py` ✅（4B 已 AutoDL L1 PASS；30B 需 A100-80G）
 - [ ] T012 [P] vendor 并预备 patch `modeling_qwen3_vl.py`（标注 merger 后视觉 token 融合注入点）于 `src/models/modeling_qwen3_vl.py`
 - [x] T013 ChromaDB store + collection 管理（a_drug/b_medqa/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py` ✅
 - [ ] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py`
@@ -74,10 +80,10 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **Purpose**: 在深做组件**之前**，用 stub 把端到端 + MCP 服务串通跑起来，锁定接口/集成/服务边界。后续 US 全部往这具骨架里"填真肉"。
 
-- [ ] T020 桩组件实现契约：`stub_detect`(返回假 ROI)、`stub_retrieve`(返回空/假证据)、`stub_report`(模板报告) 于 `src/serve/stubs.py`（依赖 T007）
-- [ ] T021 串通端到端管线 CT→detect→retrieve→report（基于 stub，走 T007 契约）于 `src/serve/pipeline.py`（依赖 T020）
-- [ ] T022 最小 FastMCP server 暴露 4 工具（generate_report/detect_lesions/retrieve_evidence/medical_qa，桩管线驱动，本地 stdio）于 `src/serve/mcp_server.py`（依赖 T021）
-- [ ] T023 [P] 骨架冒烟测试：端到端跑通 + 4 个 MCP 工具可调 + LangGraph(langchain-mcp-adapters) 连通 于 `tests/integration/test_skeleton.py`
+- [x] T020 桩组件实现契约：`stub_detect`(返回假 ROI)、`stub_retrieve`(返回空/假证据)、`stub_report`(模板报告) 于 `src/serve/stubs.py`（依赖 T007）✅
+- [x] T021 串通端到端管线 CT→detect→retrieve→report（基于 stub，走 T007 契约）于 `src/serve/pipeline.py`（依赖 T020）✅（真实组件接回归 T036）
+- [x] T022 最小 FastMCP server 暴露 4 工具（generate_report/detect_lesions/retrieve_evidence/medical_qa，桩管线驱动，本地 stdio）于 `src/serve/mcp_server.py`（依赖 T021）✅
+- [x] T023 [P] 骨架冒烟测试：端到端跑通 + 4 个 MCP 工具可调 + LangGraph(langchain-mcp-adapters) 连通 于 `tests/integration/test_skeleton.py` ✅
 
 **Checkpoint**: 活的整体已就位——接口/数据流/服务已验证；之后每个组件替换桩后都能对骨架端到端验证
 
