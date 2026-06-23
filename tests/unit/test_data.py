@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from src.contracts.schemas import BBox, ROI, AreaBand
-from src.data import ct_box, ct_label
+from src.data import coreset, ct_box, ct_inpaint, ct_label
 
 
 def _img_with_green_box(h, w, x1, y1, x2, y2, thickness=2):
@@ -131,3 +131,122 @@ def test_out_size_downsamples_and_maps_center():
     assert hm.shape == (50, 50)
     iy, ix = np.unravel_index(int(hm.argmax()), hm.shape)
     assert abs(ix - 25) <= 1 and abs(iy - 12) <= 1  # (100,50)*0.25=(25,12.5)
+
+
+# ── T026 inpaint 抹框 + 二阶防泄露（需 opencv）───────────────────────
+
+def _textured_with_box(h, w, x1, y1, x2, y2, thickness=2, seed=0):
+    """灰度噪声背景（R=G=B，绿掩码只命中真实绿框）+ 一个绿色矩形边框。
+
+    用灰度而非彩噪：彩色随机像素会大量被绿掩码误判，干扰"绿框是否被抹净"的判定。
+    灰度仍有纹理 → inpaint 会真实改变像素，足以检出诱饵区差异。
+    """
+    rng = np.random.default_rng(seed)
+    base = rng.integers(40, 200, size=(h, w), dtype=np.uint8)
+    img = np.stack([base, base, base], axis=-1)
+    g = (0, 255, 0)
+    img[y1:y1 + thickness, x1:x2] = g
+    img[y2 - thickness:y2, x1:x2] = g
+    img[y1:y2, x1:x1 + thickness] = g
+    img[y1:y2, x2 - thickness:x2] = g
+    return img
+
+
+def test_inpaint_removes_green_box():
+    pytest.importorskip("cv2")
+    img = _textured_with_box(200, 200, 60, 60, 140, 140)
+    before = int((ct_box.green_mask(img) > 0).sum())
+    out = ct_inpaint.inpaint_image(img, config=ct_inpaint.InpaintConfig(decoy_count=0))
+    after = int((ct_box.green_mask(out) > 0).sum())
+    assert before > 0 and after == 0            # 绿框被彻底抹除
+    assert out.shape == img.shape and out.dtype == np.uint8
+
+
+def test_no_box_returns_unchanged():
+    pytest.importorskip("cv2")
+    img = np.full((64, 64, 3), 100, np.uint8)   # 无绿框
+    out = ct_inpaint.inpaint_image(img)
+    assert np.array_equal(out, img)             # 原样返回（训推一致：本就该是干净图）
+
+
+def test_decoy_inpaints_region_outside_box():
+    pytest.importorskip("cv2")
+    img = _textured_with_box(200, 200, 80, 80, 130, 130)
+    box = ct_box.extract_green_boxes(img)[0].bbox
+    cfg0 = ct_inpaint.InpaintConfig(decoy_count=0)
+    cfg2 = ct_inpaint.InpaintConfig(decoy_count=2)
+    out0 = ct_inpaint.inpaint_image(img, config=cfg0, rng=np.random.default_rng(7))
+    out2 = ct_inpaint.inpaint_image(img, config=cfg2, rng=np.random.default_rng(7))
+    diff = np.any(out0 != out2, axis=-1)        # 两者差异 = 诱饵区
+    assert diff.any()
+    # 差异应落在真实框之外（诱饵不与框重叠）
+    ys, xs = np.where(diff)
+    inside = ((xs >= box.x1) & (xs <= box.x2) & (ys >= box.y1) & (ys <= box.y2))
+    assert not inside.all()                     # 至少部分差异在框外
+
+
+def test_inpaint_deterministic_with_seed():
+    pytest.importorskip("cv2")
+    img = _textured_with_box(200, 200, 70, 70, 120, 120)
+    cfg = ct_inpaint.InpaintConfig(decoy_count=2)
+    a = ct_inpaint.inpaint_image(img, config=cfg, rng=np.random.default_rng(0))
+    b = ct_inpaint.inpaint_image(img, config=cfg, rng=np.random.default_rng(0))
+    assert np.array_equal(a, b)                 # 同 seed → 诱饵位置可复现
+
+
+# ── T027 CT coreset 选样（numpy + sklearn）──────────────────────────
+
+def _blobs(per_cluster=20, seed=0):
+    """三个分得很开的 2D 高斯团 + 各样本面积占比（覆盖三个 AreaBand）。"""
+    rng = np.random.default_rng(seed)
+    centers = np.array([[0, 0], [10, 10], [-10, 8]], dtype=float)
+    X = np.vstack([c + rng.normal(0, 0.4, (per_cluster, 2)) for c in centers])
+    # 面积占比：分别落进 small(<2%) / medium(2-5%) / large(>5%)
+    fracs = np.concatenate([
+        np.full(per_cluster, 0.01), np.full(per_cluster, 0.03), np.full(per_cluster, 0.08),
+    ])
+    return X, list(fracs)
+
+
+def test_coreset_missing_sklearn_raises_clear_error():
+    try:
+        import sklearn  # noqa: F401
+    except ImportError:
+        X, fracs = _blobs()
+        with pytest.raises(RuntimeError, match="scikit-learn"):
+            coreset.select_coreset(X, fracs)
+    else:
+        pytest.skip("本环境已装 sklearn，跳过缺依赖分支")
+
+
+def test_coreset_respects_budget_and_subset():
+    pytest.importorskip("sklearn")
+    X, fracs = _blobs()
+    ids = [f"s{i}" for i in range(len(X))]
+    sel = coreset.select_coreset(X, fracs, ids, config=coreset.CoresetConfig(budget=0.2))
+    assert 0 < len(sel) <= round(0.2 * len(X)) + 3   # 约束在预算附近
+    assert len(set(sel)) == len(sel)                 # 无重复
+    assert set(sel).issubset(set(ids))               # 合法子集
+
+
+def test_coreset_returns_all_when_budget_exceeds_n():
+    pytest.importorskip("sklearn")
+    X, fracs = _blobs(per_cluster=5)
+    sel = coreset.select_coreset(X, fracs, config=coreset.CoresetConfig(budget=999))
+    assert len(sel) == len(X)
+
+
+def test_coreset_covers_all_area_bands():
+    pytest.importorskip("sklearn")
+    X, fracs = _blobs()
+    sel = coreset.select_coreset(X, fracs, config=coreset.CoresetConfig(budget=0.3))
+    bands = {AreaBand.from_fraction(fracs[i]) for i in sel}
+    assert bands == {AreaBand.SMALL, AreaBand.MEDIUM, AreaBand.LARGE}  # 三层都有代表
+
+
+def test_coreset_deterministic():
+    pytest.importorskip("sklearn")
+    X, fracs = _blobs()
+    cfg = coreset.CoresetConfig(budget=0.25)
+    assert coreset.select_coreset(X, fracs, config=cfg) == \
+        coreset.select_coreset(X, fracs, config=cfg)

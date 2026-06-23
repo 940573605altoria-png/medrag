@@ -72,7 +72,7 @@ turbo_off
 pip install -e . --no-deps -i "$PIP_INDEX"            # 我们的包本体
 pip install pydantic "mcp[cli]" numpy -i "$PIP_INDEX" # 基础运行依赖
 pip install "transformers>=4.46" accelerate peft modelscope pillow -i "$PIP_INDEX"
-pip install opencv-python-headless -i "$PIP_INDEX"   # US1 数据路：T024 绿框提取 + T026 inpaint（headless 免 GUI 依赖）
+pip install opencv-python-headless scikit-learn -i "$PIP_INDEX"   # US1 数据路：T024/T026 绿框+inpaint(cv2)、T027 coreset(sklearn KMeans)
 
 echo "==> [5/5] L0 冒烟（环境 + 骨架，不下大模型）"
 python scripts/smoke_gpu.py
