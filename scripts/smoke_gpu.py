@@ -18,7 +18,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+
+# HF 下载稳健性（必须在 huggingface_hub 导入前设）：
+# - 走 HF 镜像（国内直连）；- 把默认 10s 下载超时调大，避免小文件偶发 ReadTimeout。
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "60")
 
 from src.config.seed import seed_everything
 from src.contracts.schemas import ReportResult

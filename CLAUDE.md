@@ -8,7 +8,7 @@ shell commands, and other important information, read the current plan
 # 📌 项目状态看板（冷启动先读这里）
 
 > 给新会话：本节是项目的"你在哪"。读完即可继续工作。事实源文件见末尾"指针"。
-> **最后更新：2026-06-21（数据/部署 5 项决策已敲定）**
+> **最后更新：2026-06-23（里程碑达成：L1 PASS，环境+模型冒烟跑通；下一步进 US1 MVP）**
 
 ## 这是什么项目
 求职面试项目：基于 **RAG + Qwen3-VL** 的"**病灶检测 + 报告生成**"医学多模态垂直系统，
@@ -22,9 +22,14 @@ shell commands, and other important information, read the current plan
 - [x] **RAG 链路实现细节** — 已细化并入 plan.md：父子层级 AutoMerging 分块、embedding(a/b Qwen3-Embedding 4B + c 多向量 全图/ROI/报告文本)、级联(BM25+dense hybrid→RRF→文本筛50→图像→二次RRF→Top-10~20)、Qwen3-VL-Reranker(cross-encoder) Top-5 + 拒答门。
 - [x] **部署与对外服务（AutoDL + MCP）** — 已细化并入 plan.md：AutoDL 托管 GPU+MCP server；medrag 作 MCP server（FastMCP，远程 HTTP/SSE+本地 stdio 双模），暴露 generate_report/detect_lesions/retrieve_evidence/medical_qa 给**另一个多Agent 医疗项目（LangGraph client）**；工具输出带溯源。仅余卡型/预算待定。
 - [x] **评估 harness（设计）** — 已细化并入 plan.md：配置驱动消融 runner；检测 FROC/sensitivity@FP+mAP、报告 域无关实体F1+关系F1、RAG ragas+recall@k/nDCG/MRR、端到端 溯源率+拒答正确性、bootstrap CI+配对检验、小病灶分层贯穿。（实现待 coding 阶段）
-- [ ] **写代码 / 训练** — 尚未开工（用户明确要求先把计划落框架，暂不 coding）。
+- [~] **写代码 / 训练（实现已开工，3 批已落地，本地 git 已提交）**：
+  - **B1 walking skeleton**（commit `841766e`）：`src/` 8 模块 + `contracts/schemas.py`（共享数据契约，含"禁编造"校验）+ `config/`(config/seed/run_record) + `serve/`(stubs→pipeline→FastMCP server 暴露 4 工具)；12 冒烟测试绿；pipeline 按 `AppConfig.flags` 选实现（现全 `stub`），真实组件逐个替桩。
+  - **B2 AutoDL bring-up + T011**（commits `897ae04`/`5a5f4d4`/`968f0fb`/`844268e`）：`models/qwen3vl.py` 基座加载器（`AutoModelForImageTextToText` 自动派发 dense 4B/8B + MoE 30B）；`scripts/`(smoke_gpu L0/L1 分级、autodl_setup、download_assets、push_github)、`autodl_runbook.md`、`test_models.py`；修了 `.gitignore` 把 `src/models`/`src/data` 误忽略的坑（已锚定为 `/models/`）。
+  - **AutoDL 实跑通过**：torch 2.12.1+cu130 / CUDA13 / **RTX 4090 D 24GB** / 数据盘 50GB / 裸镜像(清华源装 torch)。**L0 PASS**。
+- [x] **L1 PASS（2026-06-23 达成「环境+模型冒烟」里程碑）**：加载器把本地 4B 自动派发为 dense `Qwen3VLForConditionalGeneration`，推理语义正确（准确描述灰阶渐变），峰值显存 8.9GB。
+  - **HF 联网崩（httpx `client closed`）的解法 = 全本地离线**：ModelScope 拉全 4B 到 `/root/autodl-tmp/weights/Qwen3-VL-4B-Instruct`，再 `unset *_proxy; export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 MEDRAG_BASE_MODEL=<该目录>; python scripts/smoke_gpu.py --with-model`。**教训：AutoDL 冒烟优先走"本地目录+离线"，别靠在线 HF 下载。**（崩因：`smoke_gpu.py` 用 `setdefault` 设 `HF_ENDPOINT` 没覆盖到→打到真 huggingface.co 触发 Errno99→hf_hub 的 httpx 重试复用了已关闭的 client。）
 
-**当前位置**：设计与规格阶段。B/C 已定并入 plan；其余模块在 plan.md 里是 TODO，等逐块讨论后增量补。
+**当前位置**：实现阶段·"环境+模型冒烟"批**已完成**。下一步进 **US1 MVP**。详见末尾"▶️ 下一步"。
 
 ## 已敲定的核心决策（不要推翻，除非用户改主意）
 - **B 双路融合**：解决病灶特征被背景稀释。全局图 + ROI 放缩图在 merger 后的视觉 token 层融合。
@@ -62,6 +67,7 @@ shell commands, and other important information, read the current plan
 - git 在 F 盘需 `safe.directory`（已全局加过）。spec-kit 的 pwsh 脚本本机用 `powershell`（无 pwsh.exe）跑。
 - GitHub 访问不稳（有代理），克隆/装包失败先重试再判断。
 - 激活环境：`conda activate F:\miniconda\envs\medrag`。
+- **AutoDL（云 GPU 端，已在用）**：conda env 也叫 `medrag`（Py3.11，miniconda3）；项目在 `/root/medrag-1/rag_workspace_claude`（**用户手拷，非 git clone**）；数据盘 `/root/autodl-tmp`(50G)；`HF_HOME=/root/autodl-tmp/.cache/huggingface`、`HF_ENDPOINT=https://hf-mirror.com`。学术加速**按渠道**开关：清华源/hf-mirror/ModelScope 直连(关)，github/hf官网/kaggle 才 `turbo_on`(=`source /etc/network_turbo`)。本地↔AutoDL 目前靠**手拷**同步（GitHub 未推通），改了脚本要重拷。
 
 ## 📂 事实源指针（详情看这些文件，别凭本看板记忆下结论）
 - 设计/规格：[constitution](.specify/memory/constitution.md)、[spec.md](specs/001-medrag-detect-report/spec.md)、[plan.md](specs/001-medrag-detect-report/plan.md)、[tasks.md](specs/001-medrag-detect-report/tasks.md)
@@ -69,8 +75,24 @@ shell commands, and other important information, read the current plan
 - 记忆：项目背景 `project-medrag`、环境坑 `env-tooling-gotchas`（在 memory 目录）
 
 ## ▶️ 下一步（新会话可直接接手）
-**设计阶段全部模块已细化并入 plan.md**（数据集分工 / RAG 链路 / 评估 harness / 部署与对外服务 AutoDL+MCP）；
-AutoDL 卡型/预算已收口（预算充足、保证完成任务、对卡数自适应）；**`tasks.md` 已生成**（66 任务，US1/US2/US3 + 部署）。
-仅余"待实测"非阻塞项：c 图像编码器选型、多模态 VL 嵌入型号。
-**下一步：经用户同意后进入实现**——MVP = Setup + Foundational + US1（端到端检测+报告+溯源）。
-当前仍在"设计落框架"阶段，**未经用户同意不要开始写代码/训练**。
+
+**① ✅ 已完成：`L1 PASS`（环境+模型冒烟里程碑达成）。** 复现方式（AutoDL bash，`conda activate medrag`，`cd /root/medrag-1/rag_workspace_claude`）——**走本地离线，别在线下**：
+```bash
+MEDRAG_BASE_MODEL_MS=Qwen/Qwen3-VL-4B-Instruct bash scripts/download_assets.sh weights   # 一次性，ModelScope 拉全 4B
+unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export MEDRAG_BASE_MODEL=/root/autodl-tmp/weights/Qwen3-VL-4B-Instruct
+python scripts/smoke_gpu.py --with-model   # → L1 PASS，峰值显存 8.9GB
+```
+
+**② 马上要做：US1 MVP**（真实 C 定位 + B 融合 + CT 检索 + 报告，替换骨架桩）。
+✅ **前置验证已完成（2026-06-23，`scripts/probe_dataset_c.py`）**：c(`MedTrinity-25M` 25M_demo) 图上**确实画了绿色规整矩形 ROI 框**（每图 ~0.5–0.75% 绿像素，已肉眼确认），caption 是多粒度文本、位置只用文字描述、**无数字坐标**——所以**绿框就是唯一定位信号**，C 的 `cv2.inRange 提框` 原设计成立、T024 不改。caption 同时是报告生成的现成监督。
+开工：实现 T024 `src/data/ct_box.py`（cv2.inRange 绿阈值按实图调）→ T025 高斯热图标签 → T026 inpaint 抹框+防泄露。
+
+**③ 资源**：4090/24GB/50GB **只够 4B 验证代码路径**；真跑 30B 基座需升级显卡(A100 80GB 级)+扩容数据盘(≥120GB)，
+用户已确认后续可升级。届时同样命令把 `--model-id` 换 `Qwen/Qwen3-VL-30B-A3B-Instruct`（显存紧加 `--quant 4bit`）。
+
+**两个待办（非阻塞）：**
+- **GitHub 未推通**：`origin` 已配(`940573605altoria-png/medrag`)，但本助手沙箱无终端弹不出登录窗 + 国内网络需走 7890 代理。
+  待用户在**自己终端**跑 `scripts\push_github.ps1 -Proxy http://127.0.0.1:7890`（弹窗登录一次）。推通后 AutoDL 可改 `git pull` 同步。
+- **本地有未提交脚本改动**：`scripts/autodl_setup.sh`(清华源+学术加速按渠道 turbo)、`scripts/push_github.ps1`(ASCII+代理)、`scripts/smoke_gpu.py`(HF 超时默认)。需提交。

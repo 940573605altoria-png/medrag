@@ -51,6 +51,9 @@ logs/
 *.log
 .cache/
 
+# ---- Ad-hoc probe / debug output ----
+probe_c_out/
+
 # ---- OS / IDE ----
 .DS_Store
 Thumbs.db
