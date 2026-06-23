@@ -61,7 +61,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T013 ChromaDB store + collection 管理（a_drug/b_medqa/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py` ✅
 - [ ] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py`
 - [ ] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py`
-- [ ] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py`
+- [x] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py` ✅（runner 吃 `predict_fn`+`metric_fn` 与模型解耦；record 落盘/读取/拍平 EvalRecord）
 - [ ] T017 [P] vanilla 零样本基线 runner 于 `src/train/baseline_vanilla.py`
 - [ ] T018 [P] 朴素 LoRA 基线训练配置于 `src/train/configs/baseline_lora.yaml`
 - [ ] T019 LLaMA-Factory/ms-swift 集成（LoRA+多图+ZeRO-2、不手写循环）于 `src/train/framework.py`
@@ -141,7 +141,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T051 [P] [US3] RAG 指标 ragas(faithfulness/context P-R，固定 judge temp0)+recall@k/nDCG/MRR 于 `src/eval/metrics_rag.py` ✅（检索指标纯逻辑本地测；ragas 裁判走 DashScope/qwen-max temp0，key 从 `DASHSCOPE_API_KEY` env 读、不入库，守卫导入）
 - [x] T052 [P] [US3] 端到端指标 证据可溯源率 + 拒答正确性(abstention P/R) 于 `src/eval/metrics_e2e.py` ✅
 - [x] T053 [P] [US3] bootstrap CI + 配对显著性检验 于 `src/eval/stats.py` ✅（bootstrap CI / 配对 delta CI / 置换检验 / McNemar，固定 seed）
-- [ ] T054 [US3] 消融矩阵 runner（一次一变量开关、相对基线 delta、小病灶分层）于 `src/eval/ablation.py`（依赖 T016, T049-T053）
+- [x] T054 [US3] 消融矩阵 runner（一次一变量开关、相对基线 delta、小病灶分层）于 `src/eval/ablation.py`（依赖 T016, T049-T053）✅（`build_variants` 单变量派生；逐样本配对 delta CI + 置换检验；按 AreaBand 分层验"增益集中小病灶"）
 - [ ] T055 [US3] B 三臂消融报告（相加/拼接/多图，证明增益集中 <2%）于 `src/eval/ablation_b.py`（依赖 T054, T030）
 - [ ] T056 [US3] 质量门（增益不显著→阻断进入下一阶段）织入 runner 于 `src/eval/runner.py`（依赖 T053, T054）
 - [ ] T057 [P] [US3] 集成测试：开关单改动→分层+显著性 delta 于 `tests/integration/test_ablation.py`
