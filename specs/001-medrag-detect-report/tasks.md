@@ -120,8 +120,8 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 
 **Independent Test**: 一组医学/药品问题，回答可溯源到来源且 faithfulness 达标。
 
-- [ ] T038 [P] [US2] 文本归一化（NFKC、样板剔除、**医学数值/单位/剂量不归一**）于 `src/data/normalize.py`
-- [ ] T039 [US2] 精确(SHA1)+MinHash/LSH 近重复去重（保守阈值、来源 ID 并入溯源）于 `src/data/dedup.py`（依赖 T038）
+- [x] T038 [P] [US2] 文本归一化（NFKC、样板剔除、**医学数值/单位/剂量不归一**）于 `src/data/normalize.py` ✅（纯标准库本地全测：NFKC/空白/重复标点折叠/样板剔除，开关化；剂量/单位绝不归一已断言 `5mg≠50mg≠5mL`）
+- [x] T039 [US2] 精确(SHA1)+MinHash/LSH 近重复去重（保守阈值、来源 ID 并入溯源）于 `src/data/dedup.py`（依赖 T038）✅（精确/结构化键/近重复纯逻辑本地测，并查集聚类+来源并入存活节点；MinHash 用 datasketch 守卫，纯 jaccard 暴力法作本地参照）
 - [ ] T040 [US2] QA 同问不同答 LLM-judge 四档 + LLM-merge（`llm_merged`、保双来源、不加新事实、可消融）于 `src/data/qa_conflict.py`（依赖 T039, T009）；**送外部 LLM-judge 前 MUST 经去标识、无 PHI 外发（FR-007 / constitution 隐私）**
 - [ ] T041 [P] [US2] 双语医学 NER（英 scispaCy/medspaCy + 中文 CMeEE/CCKS BERT-NER，统一 schema）于 `src/data/ner.py`
 - [ ] T042 [US2] NER 覆盖率+多信号质量筛选（密度/可链接率/稀有命中；零实体硬丢、低覆盖软降权；基准不含评估集）+ **去重/筛选前后实体集对比覆盖护栏（断言未删独有实体，FR-012）** 于 `src/data/ner_quality.py`（依赖 T041）
