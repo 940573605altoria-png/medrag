@@ -69,7 +69,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py` ✅（`HeldoutSet` 按 AreaBand 分层 + `assert_never_touched` 防泄露断言 + jsonl 加载；纯逻辑本地测）
 - [x] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py` ✅（runner 吃 `predict_fn`+`metric_fn` 与模型解耦；record 落盘/读取/拍平 EvalRecord）
 - [ ] T017 [P] vanilla 零样本基线 runner 于 `src/train/baseline_vanilla.py`
-- [ ] T018 [P] 朴素 LoRA 基线训练配置于 `src/train/configs/baseline_lora.yaml`
+- [x] T018 [P] 朴素 LoRA 基线训练配置于 `src/train/configs/baseline_lora.yaml` ✅（LLaMA-Factory 格式、无任何创新开关的消融对照底座，固定 seed；🟡 AutoDL 消费）
 - [ ] T019 LLaMA-Factory/ms-swift 集成（LoRA+多图+ZeRO-2、不手写循环）于 `src/train/framework.py`
 
 **Checkpoint**: 接口契约 + 基座/向量库/嵌入/评估骨架/基线就绪
@@ -108,7 +108,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T034 [US1] **真实报告生成替换 stub_report**（结构化 + 每条结论挂证据/ROI + 无证据拒答，FR-002/003，实现 `ReportResult`）于 `src/models/report.py` ✅（引用标签 [S*]/[ROI*] 强制溯源；接回管线归 T036）
 - [ ] T035 [US1] C+B 训练脚本（LoRA、σ 退火课程、各创新点消融开关）于 `src/train/train_cb.py`（依赖 T019, T028, T029, T030）
 - [ ] T036 [US1] **把真实 detect/visual-retrieve/report 接回骨架管线**（替换 T020 桩）于 `src/serve/pipeline.py`（依赖 T028, T033, T034）
-- [ ] T037 [P] [US1] 集成测试：干净 CT → 端到端带来源报告（对骨架）+ **断言检测草稿空/错时图像兜底通道触发（FR-005）** 于 `tests/integration/test_e2e_report.py`
+- [x] T037 [P] [US1] 集成测试：干净 CT → 端到端带来源报告（对骨架）+ **断言检测草稿空/错时图像兜底通道触发（FR-005）** 于 `tests/integration/test_e2e_report.py` ✅（检测→视觉级联→报告生成端到端：结论同锚证据+ROI、draft 空时图像主通道兜底召回、无图无草稿→拒答；注入桩本地测）
 
 **Checkpoint**: US1 端到端真实可演示（MVP）
 

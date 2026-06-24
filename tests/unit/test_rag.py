@@ -35,7 +35,11 @@ def test_missing_chromadb_clear_error():
 
 def _store():
     pytest.importorskip("chromadb")
-    return store.VectorStore()                       # path=None → 内存
+    vs = store.VectorStore()                         # path=None → 内存
+    # chromadb EphemeralClient 进程内共享 → 先 reset 保证测试隔离（不受其他测试遗留维度影响）
+    for c in store.COLLECTIONS:
+        vs.reset(c)
+    return vs
 
 
 def test_add_and_count():
