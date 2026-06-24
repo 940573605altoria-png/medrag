@@ -51,6 +51,8 @@ shell commands, and other important information, read the current plan
 - **US2 文本 RAG 链（2026-06-24 开工）**：纯逻辑/格式化部分本地测过，**功能跑需 AutoDL 装模型/重库**：
   - **T014 `rag/embed_text.py`**：`format_query`/`l2_normalize` 纯逻辑测过；真实嵌入需 `pip install sentence-transformers` + Qwen3-Embedding 4B 权重（`TextEmbedder` 后端守卫导入；本地测用注入 `encode_fn` 桩）。
   - **T043 `rag/chunk.py`**：QA 分块 `chunk_qa` 纯逻辑全测；文档路 `hierarchical_chunk_documents` 需 `pip install llama-index-core`（`HierarchicalNodeParser`，守卫导入）。
+  - **T045 `rag/retrieve_text.py`**：RRF/AutoMerge/dense 路本地测；BM25 通道需 `pip install rank-bm25`（`BM25Index` 守卫，轻量、可本地装）。
+  - **T046 `rag/rerank.py`**：重排/拒答门纯逻辑全测；真实精排需 `sentence-transformers` + Qwen3-Reranker 权重（`CrossEncoder` 守卫；本地测注入 `score_fn` 桩）。
 
 ## 已敲定的核心决策（不要推翻，除非用户改主意）
 - **B 双路融合**：解决病灶特征被背景稀释。全局图 + ROI 放缩图在 merger 后的视觉 token 层融合。
