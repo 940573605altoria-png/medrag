@@ -102,9 +102,9 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T028 [P] [US1] ViT 辅助定位头（推理无框可用）于 `src/models/loc_head.py`（实现 `DetectionResult` 契约）✅
 - [x] T029 [P] [US1] CenterNet focal + Dice + σ(t) 退火损失于 `src/models/losses.py` ✅
 - [~] T030 [US1] B 双路融合（门控残差相加 α0/拼接/多图 三臂，merger 后 token 层）patch `src/models/modeling_qwen3_vl.py` + `src/models/fusion.py`（依赖 T011, T012）— **`fusion.py` 模块 ✅；T012 vendor+接进 `modeling_qwen3_vl.py` ⏳ 待 AutoDL**
-- [ ] T031 [US1] C 图像嵌入（全图+ROI 双向量，独立冻结编码器）于 `src/rag/embed_image.py`（依赖 T013）
-- [ ] T032 [US1] c 病例多向量入库（case_id 串 报告文本+全图+ROI）于 `src/rag/index_ct.py`（依赖 T014, T031, T013）
-- [ ] T033 [US1] c 检索 query-adaptive 级联（检测头草稿桥接 + 图像主通道兜底，实现 `RetrievalResult`）于 `src/rag/cascade_visual.py`（依赖 T032）
+- [x] T031 [US1] C 图像嵌入（全图+ROI 双向量，独立冻结编码器）于 `src/rag/embed_image.py`（依赖 T013）✅（`crop_roi`+全图/ROI 双向量+归一化纯逻辑本地测；BiomedCLIP/open_clip 后端守卫，注入 `encode_fn` 桩）
+- [x] T032 [US1] c 病例多向量入库（case_id 串 报告文本+全图+ROI）于 `src/rag/index_ct.py`（依赖 T014, T031, T013）✅（三 collection 多向量入库、in_eval_set never-touched 守卫；chromadb 本地端到端功能测）
+- [x] T033 [US1] c 检索 query-adaptive 级联（检测头草稿桥接 + 图像主通道兜底，实现 `RetrievalResult`）于 `src/rag/cascade_visual.py`（依赖 T032）✅（文本草稿通道+图像全图/ROI 通道→RRF 按 case_id 聚合→IMAGE 证据/拒答；纯逻辑本地测）
 - [x] T034 [US1] **真实报告生成替换 stub_report**（结构化 + 每条结论挂证据/ROI + 无证据拒答，FR-002/003，实现 `ReportResult`）于 `src/models/report.py` ✅（引用标签 [S*]/[ROI*] 强制溯源；接回管线归 T036）
 - [ ] T035 [US1] C+B 训练脚本（LoRA、σ 退火课程、各创新点消融开关）于 `src/train/train_cb.py`（依赖 T019, T028, T029, T030）
 - [ ] T036 [US1] **把真实 detect/visual-retrieve/report 接回骨架管线**（替换 T020 桩）于 `src/serve/pipeline.py`（依赖 T028, T033, T034）

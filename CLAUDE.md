@@ -55,6 +55,7 @@ shell commands, and other important information, read the current plan
   - **T046 `rag/rerank.py`**：重排/拒答门纯逻辑全测；真实精排需 `sentence-transformers` + Qwen3-Reranker 权重（`CrossEncoder` 守卫；本地测注入 `score_fn` 桩）。
   - **T039 `data/dedup.py`**：精确/结构化/纯 jaccard 近重复本地测；规模化近重复需 `pip install datasketch`（MinHash+LSH 守卫）。
   - **T041 `data/ner.py`**：langid/标签映射纯逻辑测；真实抽取需英 `scispaCy`(en_ner_bc5cdr_md)、中 `transformers`+CMeEE/CCKS BERT-NER（`en_backend`/`zh_backend` 守卫；本地测注入桩）。
+  - **T031 `rag/embed_image.py`**：裁剪/双向量/归一化纯逻辑测；真实图像编码需 `open_clip`+BiomedCLIP 权重（待 AutoDL 实测 BiomedCLIP/PMC-CLIP/通用VL；本地测注入 `encode_fn` 桩）。T032 入库/T033 级联结构本地测，真实向量靠 T031 模型。
 
 ## 已敲定的核心决策（不要推翻，除非用户改主意）
 - **B 双路融合**：解决病灶特征被背景稀释。全局图 + ROI 放缩图在 merger 后的视觉 token 层融合。
