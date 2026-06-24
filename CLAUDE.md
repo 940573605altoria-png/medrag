@@ -8,7 +8,7 @@ shell commands, and other important information, read the current plan
 # 📌 项目状态看板（冷启动先读这里）
 
 > 给新会话：本节是项目的"你在哪"。读完即可继续工作。事实源文件见末尾"指针"。
-> **最后更新：2026-06-24（US3 评估 harness 全套落地并本地测绿：T016 runner/record + T049–T054 指标/消融；归因底座闭合。US1 创新 C/报告/RAG 库已就位。⚠️ 本地领先 origin/main 4 个提交待 push）**
+> **最后更新：2026-06-24（US3 评估 harness 全套落地并本地测绿：T016 runner/record + T049–T054 指标/消融 + T056 质量门；归因底座闭合、constitution III 闭环。US1 创新 C/报告/RAG 库已就位。⚠️ 本地领先 origin/main 多个提交待 push）**
 
 ## 这是什么项目
 求职面试项目：基于 **RAG + Qwen3-VL** 的"**病灶检测 + 报告生成**"医学多模态垂直系统，
@@ -98,9 +98,9 @@ shell commands, and other important information, read the current plan
 
 **里程碑已达**：① `L1 PASS`（环境+模型冒烟，4B）；② US1 创新 C 定位链(T024–T029)+报告(T034)+RAG 库(T013) 落地、本地测绿；③ **US3 评估 harness 全套(T016+T049–T054)落地、归因底座闭合**。任务勾选见 [tasks.md](specs/001-medrag-detect-report/tasks.md)（注：T001–T023 基建/骨架实际已完成，旧勾选框可能未同步）。
 
-**① 先做（纯逻辑、本地可全测、依赖已就绪）—— US3 收尾 T056 + T055**：
-- **T056 质量门**：把"配对检验不显著 → 阻断进下一阶段"织进 `eval/runner.py`（复用 T053/T054）。让 harness 自己会拦不靠谱改动，constitution III 彻底闭环。
-- **T055 B 三臂消融报告** `eval/ablation_b.py`：add/concat/multiimg 专项对比、出"增益集中 <2%"报告；B 真数据没出来前先用桩数据跑通框架。
+**① 先做（纯逻辑、本地可全测、依赖已就绪）—— US3 收尾**：
+- **T056 质量门 ✅（2026-06-24 完成）**：`eval/runner.py` 的 `QualityGate`（配对 delta CI 方向+置换 p+min_delta 三判据，`assert_pass` 硬阻断）已接进 `ablation.run_ablation(gate=)`+`ablation.blocked()`。constitution III 闭环。
+- **T055 B 三臂消融报告**（待做）`eval/ablation_b.py`：add/concat/multiimg 专项对比、出"增益集中 <2%"报告；B 真数据没出来前先用桩数据跑通框架（可直接复用 T054 `run_ablation`+T056 gate）。
 
 **② RAG 文本链 US2（结构本地测/功能 AutoDL 验）**：T014 文本嵌入(Qwen3-Embedding 4B) → T043 父子分块 → T044 入库(用 T013 store) → T045 hybrid 检索 → T046 reranker → T047 medical_qa 接回。守卫导入、纯逻辑本地测。
 
