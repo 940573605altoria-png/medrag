@@ -148,7 +148,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T052 [P] [US3] 端到端指标 证据可溯源率 + 拒答正确性(abstention P/R) 于 `src/eval/metrics_e2e.py` ✅
 - [x] T053 [P] [US3] bootstrap CI + 配对显著性检验 于 `src/eval/stats.py` ✅（bootstrap CI / 配对 delta CI / 置换检验 / McNemar，固定 seed）
 - [x] T054 [US3] 消融矩阵 runner（一次一变量开关、相对基线 delta、小病灶分层）于 `src/eval/ablation.py`（依赖 T016, T049-T053）✅（`build_variants` 单变量派生；逐样本配对 delta CI + 置换检验；按 AreaBand 分层验"增益集中小病灶"）
-- [ ] T055 [US3] B 三臂消融报告（相加/拼接/多图，证明增益集中 <2%）于 `src/eval/ablation_b.py`（依赖 T054, T030）
+- [x] T055 [US3] B 三臂消融报告（相加/拼接/多图，证明增益集中 <2%）于 `src/eval/ablation_b.py`（依赖 T054, T030）✅（**框架完成、桩数据测绿**：强制基线 global-only(fusion=off)，三臂逐样本配对 delta CI+分层；判定每臂"增益是否集中小病灶"+ 区分"整体最强 vs 集中小病灶"；接 T056 gate。⏳ 真数据待 T030 后半 B 接线在 AutoDL 跑出预测）
 - [x] T056 [US3] 质量门（增益不显著→阻断进入下一阶段）织入 runner 于 `src/eval/runner.py`（依赖 T053, T054）✅（`QualityGate`：配对 delta CI 方向+置换检验 p+min_delta 三判据；`check_scores`/`assert_pass`；接进 `ablation.run_ablation(gate=)` 给每变体裁决 + `ablation.blocked()`）
 - [ ] T057 [P] [US3] 集成测试：开关单改动→分层+显著性 delta 于 `tests/integration/test_ablation.py`
 
