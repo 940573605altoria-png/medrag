@@ -150,7 +150,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T054 [US3] 消融矩阵 runner（一次一变量开关、相对基线 delta、小病灶分层）于 `src/eval/ablation.py`（依赖 T016, T049-T053）✅（`build_variants` 单变量派生；逐样本配对 delta CI + 置换检验；按 AreaBand 分层验"增益集中小病灶"）
 - [x] T055 [US3] B 三臂消融报告（相加/拼接/多图，证明增益集中 <2%）于 `src/eval/ablation_b.py`（依赖 T054, T030）✅（**框架完成、桩数据测绿**：强制基线 global-only(fusion=off)，三臂逐样本配对 delta CI+分层；判定每臂"增益是否集中小病灶"+ 区分"整体最强 vs 集中小病灶"；接 T056 gate。⏳ 真数据待 T030 后半 B 接线在 AutoDL 跑出预测）
 - [x] T056 [US3] 质量门（增益不显著→阻断进入下一阶段）织入 runner 于 `src/eval/runner.py`（依赖 T053, T054）✅（`QualityGate`：配对 delta CI 方向+置换检验 p+min_delta 三判据；`check_scores`/`assert_pass`；接进 `ablation.run_ablation(gate=)` 给每变体裁决 + `ablation.blocked()`）
-- [ ] T057 [P] [US3] 集成测试：开关单改动→分层+显著性 delta 于 `tests/integration/test_ablation.py`
+- [x] T057 [P] [US3] 集成测试：开关单改动→分层+显著性 delta 于 `tests/integration/test_ablation.py` ✅（串 runner+消融+质量门+B报告+记录持久化：一次一变量、分层 delta(小0.4>大0.3)、配对显著、落盘读回 delta_row）
 
 **Checkpoint**: 所有创新点有可归因消融增益
 
@@ -177,7 +177,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [ ] T065 [P] 检索单测（hybrid RRF、级联、rerank、拒答门）于 `tests/unit/test_rag.py`
 - [ ] T066 [P] 编写 quickstart（env→建库→训练→评估→服务）于 `specs/001-medrag-detect-report/quickstart.md`
 - [ ] T067 安全加固：贯查无 PHI 入日志/向量库/MCP 传输（FR-007）于 `src/`
-- [ ] T068 [P] 可复现验证：固定 seed + 锁版本复现评估记录 于 `tests/integration/test_repro.py`
+- [x] T068 [P] 可复现验证：固定 seed + 锁版本复现评估记录 于 `tests/integration/test_repro.py` ✅（bootstrap/置换检验同 seed 两跑一致、run_eval 确定性、EvalRecord 落盘读回 flatten 相等、消融两跑 delta/p 一致）
 - [ ] T069 Constitution 门复核：溯源(I)/防泄露·训推一致(II)/基线·一次一变量消融(III)
 
 ---
