@@ -8,7 +8,7 @@ shell commands, and other important information, read the current plan
 # 📌 项目状态看板（冷启动先读这里）
 
 > 给新会话：本节是项目的"你在哪"。读完即可继续工作。事实源文件见末尾"指针"。
-> **最后更新：2026-06-24（**US2 文本 RAG 全完**(主链 T014/43/44/45/46/47/48 + 数据链 T038/39/41/42/09/40)；US3 评估 harness 全套(T016+T049–T056)；US1 创新 C/报告/RAG 库就位。归因底座+constitution III 闭环。本地纯逻辑 184 passed/12 skipped。⚠️ 领先 origin/main 多个提交待 push；US1 B 接线 T012+T030后半 待 AutoDL）**
+> **最后更新：2026-06-24（**本地可做的全部做完**：US2 全完、US3 全套、US1 视觉RAG链(T031/32/33)+报告+C定位链、数据ingestion(T008)+预处理链、固定测试集(T015)/分层(T010)、quickstart/constitution复核/可复现/消融/无PHI 集成测试。本地 214 passed/12 skipped。⚠️ 剩余**仅 AutoDL/GPU**：B 接线 T012+T030后半、训练 T017/19/35/36、部署 T058–62。领先 origin/main 多个提交待 push）**
 
 ## 这是什么项目
 求职面试项目：基于 **RAG + Qwen3-VL** 的"**病灶检测 + 报告生成**"医学多模态垂直系统，
@@ -104,14 +104,17 @@ shell commands, and other important information, read the current plan
 
 ## ▶️ 下一步（新会话可直接接手）
 
-**里程碑已达**：① `L1 PASS`（环境+模型冒烟，4B）；② US1 创新 C 定位链(T024–T029)+报告(T034)+RAG 库(T013) 落地、本地测绿；③ **US3 评估 harness 全套(T016+T049–T054)落地、归因底座闭合**。任务勾选见 [tasks.md](specs/001-medrag-detect-report/tasks.md)（注：T001–T023 基建/骨架实际已完成，旧勾选框可能未同步）。
+**本地可做的全部做完（2026-06-24，214 passed / 12 skipped）**。三条 US 在代码/结构层都已落地、本地测绿：
+- **US1**：C 定位链(T024–T029)+报告(T034)+RAG 库(T013)+**视觉RAG链 T031图像嵌入/T032多向量入库/T033级联**+端到端集成测试(T037,含 FR-005 图像兜底)。
+- **US2 ✅ 全完**：主链 T014/43/44/45/46/47/48 + 数据链 T009/38/39/40/41/42 + ingestion 管线 T008。`Pipeline(qa_service=)`→MCP medical_qa 自动走真实路。
+- **US3 ✅ 全套**：T016+T049–T056（指标/消融/质量门/B报告）+ T057 消融集成 + T015 固定测试集 + T010 分层。
+- **收尾**：quickstart(T066)、constitution 复核(T069)、可复现(T068)、无PHI贯查(T067)、基线LoRA配置(T018)。
 
-**① US3 评估线已基本完工（2026-06-24）**：T016+T049–T054+**T056 质量门**+**T055 B 三臂报告** 全部 ✅、本地测绿（106 passed）。`eval/runner.py` 的 `QualityGate`（三判据+`assert_pass` 硬阻断）已接进 `ablation`；`eval/ablation_b.py` 强制 global-only 基线、区分"整体最强 vs 增益集中小病灶"（桩数据跑通，真数据待 B 接线）。**仅余 T057 消融集成测试**（可选，纯逻辑）。
-
-**② US2 文本 RAG ✅ 全完（2026-06-24，结构本地测绿/功能 AutoDL 验）**：主链 T014 嵌入·T043 分块·T044 入库·T045 hybrid检索·T046 rerank拒答门·T047 medical_qa接回·T048 集成测试；数据链 T038 归一化·T039 去重·T041 NER·T042 质量筛·T009 去标识·T040 QA冲突。`Pipeline(qa_service=)`→MCP medical_qa 自动走真实路。守卫导入、纯逻辑本地测，真实嵌入/精排/NER 模型待 AutoDL（见上"⚠️ 必须 AutoDL"）。
-
-**③ 收口与训练（需 AutoDL/GPU，见上"⚠️ 必须 AutoDL"节）**：
-- **T012 + T030 后半**：vendor transformers 的 `modeling_qwen3_vl.py`，merger 输出处插 `DualPathFusion`（跑两遍视觉塔：全局+ROI）。**对着 AutoDL 的 transformers 5.12.1 交互式做。** 同时过掉 T028/T029/T030 的 9 个 torch-skipped 测。
+**⏭️ 剩余任务 = 仅需 AutoDL/GPU（本地无法推进，见上"⚠️ 必须 AutoDL"节）**：
+- **T012 + T030 后半（B 接线，US1 MVP 最后硬骨头）**：vendor transformers 的 `modeling_qwen3_vl.py`，merger 输出处插 `DualPathFusion`（跑两遍视觉塔：全局+ROI）。**对着 AutoDL 的 transformers 5.12.1 交互式做**，同时过掉 T028/29/30 的 9 个 torch-skipped 测。
+- **T017 vanilla 零样本基线 / T019 LLaMA-Factory集成 / T035 C+B 训练脚本 / T036 真实组件接回管线**：均需基座模型 + GPU。
+- **T058–T062 部署加固**：MCP 双模 transport+鉴权、AutoDL 部署、LangGraph 生产联通。
+- **真实功能验证**：把守卫导入的重依赖（torch/llama-index/sentence-transformers/open_clip/scispaCy/datasketch/ragas）装上，跑各模块 `importorskip` 的功能测 + 真实建库/检索/精排（见 quickstart.md 🟡 步骤）。
 - **T031/T032/T033**：C 图像嵌入(全图+ROI 双向量) → c 多向量入库 → 视觉级联检索。
 - **T035**：C+B 训练脚本（LoRA + σ 退火课程 + 各创新消融开关），走 LLaMA-Factory/ms-swift。
 - **T036**：把真实 detect/visual-retrieve/report 接回 `serve/pipeline.py`（改 `flags` 分支，签名不变），对骨架端到端验证。
