@@ -139,3 +139,59 @@ def test_to_table_shape():
     rows = ab.to_table(cells)
     assert rows[0]["variant"] == "fusion=add"
     assert "small/delta" in rows[0] and "p_value" in rows[0]
+
+
+# ── T056 质量门：增益不显著 → 阻断 ────────────────────────────────
+
+def test_gate_passes_significant_gain():
+    gate = run.QualityGate(n_resamples=500, seed=0)
+    res = gate.check_scores([0.5] * 20, [0.85] * 20)  # 配对差恒 +0.35
+    assert res.passed
+    assert res.delta == pytest.approx(0.35)
+
+
+def test_gate_blocks_noop():
+    gate = run.QualityGate(n_resamples=500, seed=0)
+    res = gate.check_scores([0.5] * 20, [0.5] * 20)   # 无差异
+    assert not res.passed
+    assert "CI" in res.reason and res.p_value == pytest.approx(1.0)
+
+
+def test_gate_blocks_significant_but_tiny_delta():
+    # 统计显著但效应量太小：min_delta 挡掉
+    gate = run.QualityGate(config=run.GateConfig(min_delta=0.05), n_resamples=500, seed=0)
+    res = gate.check_scores([0.5] * 20, [0.52] * 20)  # 恒 +0.02，显著但 <0.05
+    assert not res.passed
+    assert "最小阈值" in res.reason
+
+
+def test_gate_lower_is_better_direction():
+    # FP/图 越低越好：变体更低 → 过门
+    gate = run.QualityGate(config=run.GateConfig(higher_is_better=False),
+                           n_resamples=500, seed=0)
+    res = gate.check_scores([2.0] * 10, [1.0] * 10)   # delta=-1（更优）
+    assert res.passed
+
+
+def test_gate_assert_pass_raises_on_block():
+    gate = run.QualityGate(n_resamples=300, seed=0)
+    blocked = gate.check_scores([0.5] * 10, [0.5] * 10)
+    with pytest.raises(run.QualityGateError):
+        gate.assert_pass(blocked)
+
+
+def test_ablation_with_gate_attaches_verdict():
+    gate = run.QualityGate(n_resamples=500, seed=0)
+    cells = ab.run_ablation(AppConfig(), {"fusion": ["add", "concat"]}, _score_fn,
+                            bands=BANDS, gate=gate, n_resamples=500, seed=0)
+    by_name = {c.name: c for c in cells}
+    assert by_name["fusion=add"].gate is not None
+    assert by_name["fusion=add"].gate.passed       # +0.35 显著 → 过门
+    assert ab.blocked(cells) == []                 # 两臂都是真增益
+
+
+def test_ablation_gate_blocks_noop_variant():
+    gate = run.QualityGate(n_resamples=400, seed=0)
+    cells = ab.run_ablation(AppConfig(), {"reranker": [True]}, _score_fn,
+                            gate=gate, n_resamples=400, seed=0)
+    assert [c.name for c in ab.blocked(cells)] == ["reranker=True"]

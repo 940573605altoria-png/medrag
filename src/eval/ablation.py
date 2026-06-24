@@ -27,6 +27,7 @@ import numpy as np
 from src.config.config import AppConfig
 from src.contracts.schemas import AreaBand
 from src.eval import stats as st
+from src.eval.runner import GateResult, QualityGate
 
 # 逐样本得分：吃 config（含 flags）→ 每样本一个标量得分（顺序与基线对齐）。
 ScoreFn = Callable[[AppConfig], Sequence[float]]
@@ -48,13 +49,14 @@ class Comparison:
 
 @dataclass
 class AblationCell:
-    """消融矩阵的一格：一个单变量变体的整体 + 分层比较。"""
+    """消融矩阵的一格：一个单变量变体的整体 + 分层比较（+ 可选质量门裁决）。"""
 
     name: str            # 如 "fusion=add"
     flag: str            # 被改的开关
     value: Any           # 该开关取值
     overall: Comparison
     by_band: dict[str, Comparison] = field(default_factory=dict)
+    gate: GateResult | None = None   # 给了质量门时，整体增益是否过门
 
 
 def build_variants(
@@ -105,6 +107,7 @@ def run_ablation(
     score_fn: ScoreFn,
     *,
     bands: Sequence[AreaBand] | None = None,
+    gate: QualityGate | None = None,
     n_resamples: int = 2000,
     level: float = 0.95,
     seed: int | None = 0,
@@ -112,7 +115,8 @@ def run_ablation(
     """对每个单变量变体跑配对消融，返回消融矩阵（含按面积带分层）。
 
     `bands` 若给出（与样本等长），则在每个 AreaBand 子集内复算 delta+显著性——验证增益是否集中
-    在小病灶。
+    在小病灶。`gate` 若给出，则对每个变体的整体增益做质量门裁决（T056），过不了的变体应被阻断进入
+    下一阶段（见 `blocked`）。
     """
     base_scores = np.asarray(score_fn(base), dtype=float)
     bands_arr = np.asarray([b.value for b in bands]) if bands is not None else None
@@ -137,9 +141,19 @@ def run_ablation(
                     base_scores[mask], v_scores[mask],
                     n_resamples=n_resamples, level=level, seed=seed,
                 )
+        gate_result = (
+            gate.check(delta=overall.delta, p_value=overall.p_value,
+                       ci_low=overall.ci_low, ci_high=overall.ci_high)
+            if gate is not None else None
+        )
         cells.append(AblationCell(name=name, flag=flag, value=value,
-                                  overall=overall, by_band=by_band))
+                                  overall=overall, by_band=by_band, gate=gate_result))
     return cells
+
+
+def blocked(cells: Sequence[AblationCell]) -> list[AblationCell]:
+    """返回被质量门阻断的变体（gate 已算且未通过）——这些不该进入下一阶段。"""
+    return [c for c in cells if c.gate is not None and not c.gate.passed]
 
 
 def to_table(cells: Sequence[AblationCell]) -> list[dict[str, Any]]:
@@ -157,6 +171,9 @@ def to_table(cells: Sequence[AblationCell]) -> list[dict[str, Any]]:
         for band, comp in c.by_band.items():
             row[f"{band}/delta"] = comp.delta
             row[f"{band}/significant"] = comp.significant
+        if c.gate is not None:
+            row["gate_passed"] = c.gate.passed
+            row["gate_reason"] = c.gate.reason
         rows.append(row)
     return rows
 
@@ -167,5 +184,6 @@ __all__ = [
     "AblationCell",
     "build_variants",
     "run_ablation",
+    "blocked",
     "to_table",
 ]

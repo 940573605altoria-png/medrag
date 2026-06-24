@@ -14,11 +14,12 @@ runner 刻意**与模型/数据解耦**（骨架可本地测、不拉 GPU）：
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable
+from dataclasses import dataclass, field
+from typing import Any, Callable, Sequence
 
 from src.config.config import AppConfig
 from src.contracts.schemas import EvalRecord
+from src.eval import stats as st
 
 # 系统执行：吃 config（含 flags 开关）→ 产出待评中间物。
 PredictFn = Callable[[AppConfig], Any]
@@ -55,4 +56,106 @@ def run_eval(
     )
 
 
-__all__ = ["PredictFn", "MetricFn", "EvalSpec", "run_eval"]
+# ════════════════════════════════════════════════════════════════════
+# 质量门（T056）—— 增益不显著 → 阻断进入下一阶段
+# ════════════════════════════════════════════════════════════════════
+
+class QualityGateError(RuntimeError):
+    """质量门阻断：候选改动相对基线的增益不达标（不显著/方向反/效应过小）。"""
+
+
+@dataclass
+class GateConfig:
+    """质量门判据（constitution III：一次一变量 + 增益须真实显著）。
+
+    - `require_significant_ci`：配对 delta CI 必须**在更优方向上不含 0**（噪声排除）。
+    - `max_p_value`：配对置换检验 p 的上限。
+    - `min_delta`：最小**有意义增益**（效应量下限，挡住"统计显著但实务无意义"的微小改动）。
+    - `higher_is_better`：多数指标越高越好；FP/图、拒答误伤等越低越好时置 False。
+    """
+
+    require_significant_ci: bool = True
+    max_p_value: float = 0.05
+    min_delta: float = 0.0
+    higher_is_better: bool = True
+
+
+@dataclass
+class GateResult:
+    """质量门裁决：过/挡 + 原因 + 复核用的统计量。"""
+
+    passed: bool
+    reason: str
+    delta: float
+    p_value: float
+    ci_low: float
+    ci_high: float
+
+
+@dataclass
+class QualityGate:
+    """把"增益是否真实显著"固化成一道门：不达标就挡住、可硬抛异常阻断流水线。
+
+    既能吃**已算好的统计量**（`check`，复用 ablation 的 Comparison），也能吃**逐样本配对得分**
+    （`check_scores`，自带 bootstrap CI + 置换检验，复用 [stats]）。
+    """
+
+    config: GateConfig = field(default_factory=GateConfig)
+    n_resamples: int = 2000
+    level: float = 0.95
+    seed: int | None = 0
+
+    def check(
+        self, *, delta: float, p_value: float, ci_low: float, ci_high: float
+    ) -> GateResult:
+        """对已有统计量裁决（delta = 变体−基线，方向由 config 决定）。"""
+        cfg = self.config
+        improvement = delta if cfg.higher_is_better else -delta
+        direction_ok = (ci_low > 0.0) if cfg.higher_is_better else (ci_high < 0.0)
+
+        reasons: list[str] = []
+        if cfg.require_significant_ci and not direction_ok:
+            reasons.append(
+                f"配对 delta CI 在更优方向上含 0（[{ci_low:.4f}, {ci_high:.4f}]）"
+            )
+        if p_value > cfg.max_p_value:
+            reasons.append(f"p={p_value:.4f} > {cfg.max_p_value}")
+        if improvement < cfg.min_delta:
+            reasons.append(f"增益 {improvement:.4f} < 最小阈值 {cfg.min_delta}")
+
+        passed = not reasons
+        return GateResult(
+            passed=passed,
+            reason="通过（增益显著且达效应量阈值）" if passed else "；".join(reasons),
+            delta=delta, p_value=p_value, ci_low=ci_low, ci_high=ci_high,
+        )
+
+    def check_scores(
+        self, baseline: Sequence[float], variant: Sequence[float]
+    ) -> GateResult:
+        """从逐样本配对得分裁决：先算 bootstrap delta CI + 置换检验 p，再走 `check`。"""
+        ci = st.paired_bootstrap_delta_ci(
+            variant, baseline, n_resamples=self.n_resamples, level=self.level, seed=self.seed
+        )
+        p = st.paired_permutation_test(
+            variant, baseline, n_resamples=self.n_resamples, seed=self.seed
+        )
+        return self.check(delta=ci.point, p_value=p, ci_low=ci.low, ci_high=ci.high)
+
+    def assert_pass(self, result: GateResult) -> GateResult:
+        """门没过就抛 QualityGateError（用于"不显著则阻断进入下一阶段"的硬卡点）。"""
+        if not result.passed:
+            raise QualityGateError(result.reason)
+        return result
+
+
+__all__ = [
+    "PredictFn",
+    "MetricFn",
+    "EvalSpec",
+    "run_eval",
+    "QualityGateError",
+    "GateConfig",
+    "GateResult",
+    "QualityGate",
+]
