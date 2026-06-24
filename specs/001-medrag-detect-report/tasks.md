@@ -65,7 +65,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py` ✅（4B 已 AutoDL L1 PASS；30B 需 A100-80G）
 - [ ] T012 [P] vendor 并预备 patch `modeling_qwen3_vl.py`（标注 merger 后视觉 token 融合注入点）于 `src/models/modeling_qwen3_vl.py`
 - [x] T013 ChromaDB store + collection 管理（a_drug/b_medqa/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py` ✅
-- [ ] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py`
+- [x] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py` ✅（`format_query`(Instruct前缀)/`format_document`(不加)/`l2_normalize` 纯逻辑本地测；`TextEmbedder` 可注入 `encode_fn`，模型后端守卫导入待 AutoDL）
 - [ ] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py`
 - [x] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py` ✅（runner 吃 `predict_fn`+`metric_fn` 与模型解耦；record 落盘/读取/拍平 EvalRecord）
 - [ ] T017 [P] vanilla 零样本基线 runner 于 `src/train/baseline_vanilla.py`
@@ -125,7 +125,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [ ] T040 [US2] QA 同问不同答 LLM-judge 四档 + LLM-merge（`llm_merged`、保双来源、不加新事实、可消融）于 `src/data/qa_conflict.py`（依赖 T039, T009）；**送外部 LLM-judge 前 MUST 经去标识、无 PHI 外发（FR-007 / constitution 隐私）**
 - [ ] T041 [P] [US2] 双语医学 NER（英 scispaCy/medspaCy + 中文 CMeEE/CCKS BERT-NER，统一 schema）于 `src/data/ner.py`
 - [ ] T042 [US2] NER 覆盖率+多信号质量筛选（密度/可链接率/稀有命中；零实体硬丢、低覆盖软降权；基准不含评估集）+ **去重/筛选前后实体集对比覆盖护栏（断言未删独有实体，FR-012）** 于 `src/data/ner_quality.py`（依赖 T041）
-- [ ] T043 [P] [US2] 父子层级分块（AutoMerging、结构感知+尺寸、短 QA 单节点/长答案父子、子块前置 question）于 `src/rag/chunk.py`
+- [x] T043 [P] [US2] 父子层级分块（AutoMerging、结构感知+尺寸、短 QA 单节点/长答案父子、子块前置 question）于 `src/rag/chunk.py` ✅（QA 路 `chunk_qa` 纯逻辑本地测：短答案单叶/长答案父子、子块 embed 前置 question 不污染展示文本、`to_knowledge_nodes` 映射；文档路 `HierarchicalNodeParser` 守卫导入待 AutoDL）
 - [ ] T044 [US2] a/b 叶块入库 + docstore 承载 AutoMerging 于 `src/rag/index_text.py`（依赖 T043, T014, T013）
 - [ ] T045 [US2] hybrid 文本检索（`BM25Retriever`+dense+`QueryFusionRetriever` RRF；top-N/归一化分过滤）于 `src/rag/retrieve_text.py`（依赖 T044）
 - [ ] T046 [US2] Qwen3-VL-Reranker cross-encoder Top-5（先 AutoMerge 再 rerank）+ 拒答门 于 `src/rag/rerank.py`（依赖 T045）
