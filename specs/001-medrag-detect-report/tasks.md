@@ -61,12 +61,12 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T007 **定义共享数据契约/接口 schema**（`ROI`/`DetectionResult`(热图/框/面积带/置信)、`EvidenceItem`(source_id/score/citation/modality)、`RetrievalResult`(含 abstain)、`ReportResult`(结构化+每条结论证据链+不确定标注)、MCP `ToolIO`、`EvalRecord`、`KnowledgeNode`/`CTSample` 元数据）于 `src/contracts/schemas.py` ✅
 - [x] T008 实现 a/b/c 原始数据 ingestion 加载器于 `src/data/ingest.py` ✅（jsonl 读 + a/b/c 适配；`ingest_documents`/`ingest_qa` 把 归一化→去标识→去重→(b)QA冲突→NER质量筛 串成可消融管线，全程覆盖护栏(FR-012)、PHI 前置(FR-007)；NER/judge/merge 可注入故纯逻辑本地测）
 - [x] T009 [P] PHI 去标识化（FR-007）于 `src/data/deid.py` ✅（高精度正则抹手机/身份证/邮箱/带标签字段，剂量不动；`has_phi`/`assert_no_phi` 外发硬护栏；纯逻辑本地全测）
-- [ ] T010 [P] 病灶面积分层工具（`<2%/2–5%/>5%`）于 `src/data/stratify.py`
+- [x] T010 [P] 病灶面积分层工具（`<2%/2–5%/>5%`）于 `src/data/stratify.py` ✅（薄包 `AreaBand`：`band_of`/`group_by_band`/`band_distribution`，纯逻辑本地测）
 - [x] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py` ✅（4B 已 AutoDL L1 PASS；30B 需 A100-80G）
 - [ ] T012 [P] vendor 并预备 patch `modeling_qwen3_vl.py`（标注 merger 后视觉 token 融合注入点）于 `src/models/modeling_qwen3_vl.py`
 - [x] T013 ChromaDB store + collection 管理（a_drug/b_medqa/c_text/c_img_whole/c_img_roi，cosine，metadata where）于 `src/rag/store.py` ✅
 - [x] T014 [P] Qwen3-Embedding 4B 文本嵌入服务（非对称 query 指令、归一化、训推一致）于 `src/rag/embed_text.py` ✅（`format_query`(Instruct前缀)/`format_document`(不加)/`l2_normalize` 纯逻辑本地测；`TextEmbedder` 可注入 `encode_fn`，模型后端守卫导入待 AutoDL）
-- [ ] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py`
+- [x] T015 固定 held-out 测试集加载器（面积分层、never-touched 守卫）于 `src/eval/dataset.py` ✅（`HeldoutSet` 按 AreaBand 分层 + `assert_never_touched` 防泄露断言 + jsonl 加载；纯逻辑本地测）
 - [x] T016 配置驱动评估 runner 骨架 + 评估记录 schema（归因底座，依赖 T007）于 `src/eval/runner.py`、`src/eval/record.py` ✅（runner 吃 `predict_fn`+`metric_fn` 与模型解耦；record 落盘/读取/拍平 EvalRecord）
 - [ ] T017 [P] vanilla 零样本基线 runner 于 `src/train/baseline_vanilla.py`
 - [ ] T018 [P] 朴素 LoRA 基线训练配置于 `src/train/configs/baseline_lora.yaml`
