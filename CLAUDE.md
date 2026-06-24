@@ -98,9 +98,7 @@ shell commands, and other important information, read the current plan
 
 **里程碑已达**：① `L1 PASS`（环境+模型冒烟，4B）；② US1 创新 C 定位链(T024–T029)+报告(T034)+RAG 库(T013) 落地、本地测绿；③ **US3 评估 harness 全套(T016+T049–T054)落地、归因底座闭合**。任务勾选见 [tasks.md](specs/001-medrag-detect-report/tasks.md)（注：T001–T023 基建/骨架实际已完成，旧勾选框可能未同步）。
 
-**① 先做（纯逻辑、本地可全测、依赖已就绪）—— US3 收尾**：
-- **T056 质量门 ✅（2026-06-24 完成）**：`eval/runner.py` 的 `QualityGate`（配对 delta CI 方向+置换 p+min_delta 三判据，`assert_pass` 硬阻断）已接进 `ablation.run_ablation(gate=)`+`ablation.blocked()`。constitution III 闭环。
-- **T055 B 三臂消融报告**（待做）`eval/ablation_b.py`：add/concat/multiimg 专项对比、出"增益集中 <2%"报告；B 真数据没出来前先用桩数据跑通框架（可直接复用 T054 `run_ablation`+T056 gate）。
+**① US3 评估线已基本完工（2026-06-24）**：T016+T049–T054+**T056 质量门**+**T055 B 三臂报告** 全部 ✅、本地测绿（106 passed）。`eval/runner.py` 的 `QualityGate`（三判据+`assert_pass` 硬阻断）已接进 `ablation`；`eval/ablation_b.py` 强制 global-only 基线、区分"整体最强 vs 增益集中小病灶"（桩数据跑通，真数据待 B 接线）。**仅余 T057 消融集成测试**（可选，纯逻辑）。
 
 **② RAG 文本链 US2（结构本地测/功能 AutoDL 验）**：T014 文本嵌入(Qwen3-Embedding 4B) → T043 父子分块 → T044 入库(用 T013 store) → T045 hybrid 检索 → T046 reranker → T047 medical_qa 接回。守卫导入、纯逻辑本地测。
 
