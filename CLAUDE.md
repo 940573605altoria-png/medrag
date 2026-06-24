@@ -8,7 +8,7 @@ shell commands, and other important information, read the current plan
 # 📌 项目状态看板（冷启动先读这里）
 
 > 给新会话：本节是项目的"你在哪"。读完即可继续工作。事实源文件见末尾"指针"。
-> **最后更新：2026-06-24（US3 评估 harness 全套落地并本地测绿：T016 runner/record + T049–T054 指标/消融 + T056 质量门；归因底座闭合、constitution III 闭环。US1 创新 C/报告/RAG 库已就位。⚠️ 本地领先 origin/main 多个提交待 push）**
+> **最后更新：2026-06-24（**US2 文本 RAG 全完**(主链 T014/43/44/45/46/47/48 + 数据链 T038/39/41/42/09/40)；US3 评估 harness 全套(T016+T049–T056)；US1 创新 C/报告/RAG 库就位。归因底座+constitution III 闭环。本地纯逻辑 184 passed/12 skipped。⚠️ 领先 origin/main 多个提交待 push；US1 B 接线 T012+T030后半 待 AutoDL）**
 
 ## 这是什么项目
 求职面试项目：基于 **RAG + Qwen3-VL** 的"**病灶检测 + 报告生成**"医学多模态垂直系统，
@@ -107,7 +107,7 @@ shell commands, and other important information, read the current plan
 
 **① US3 评估线已基本完工（2026-06-24）**：T016+T049–T054+**T056 质量门**+**T055 B 三臂报告** 全部 ✅、本地测绿（106 passed）。`eval/runner.py` 的 `QualityGate`（三判据+`assert_pass` 硬阻断）已接进 `ablation`；`eval/ablation_b.py` 强制 global-only 基线、区分"整体最强 vs 增益集中小病灶"（桩数据跑通，真数据待 B 接线）。**仅余 T057 消融集成测试**（可选，纯逻辑）。
 
-**② RAG 文本链 US2（结构本地测/功能 AutoDL 验）**：T014 文本嵌入(Qwen3-Embedding 4B) → T043 父子分块 → T044 入库(用 T013 store) → T045 hybrid 检索 → T046 reranker → T047 medical_qa 接回。守卫导入、纯逻辑本地测。
+**② US2 文本 RAG ✅ 全完（2026-06-24，结构本地测绿/功能 AutoDL 验）**：主链 T014 嵌入·T043 分块·T044 入库·T045 hybrid检索·T046 rerank拒答门·T047 medical_qa接回·T048 集成测试；数据链 T038 归一化·T039 去重·T041 NER·T042 质量筛·T009 去标识·T040 QA冲突。`Pipeline(qa_service=)`→MCP medical_qa 自动走真实路。守卫导入、纯逻辑本地测，真实嵌入/精排/NER 模型待 AutoDL（见上"⚠️ 必须 AutoDL"）。
 
 **③ 收口与训练（需 AutoDL/GPU，见上"⚠️ 必须 AutoDL"节）**：
 - **T012 + T030 后半**：vendor transformers 的 `modeling_qwen3_vl.py`，merger 输出处插 `DualPathFusion`（跑两遍视觉塔：全局+ROI）。**对着 AutoDL 的 transformers 5.12.1 交互式做。** 同时过掉 T028/T029/T030 的 9 个 torch-skipped 测。

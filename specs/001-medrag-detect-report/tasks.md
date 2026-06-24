@@ -130,7 +130,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [x] T045 [US2] hybrid 文本检索（`BM25Retriever`+dense+`QueryFusionRetriever` RRF；top-N/归一化分过滤）于 `src/rag/retrieve_text.py`（依赖 T044）✅（RRF/AutoMerging 上浮纯逻辑本地测；dense 路内存 chroma 端到端测；BM25 用 `rank_bm25` 守卫；**架构对齐自建栈，RRF 直接实现而非套 LlamaIndex `QueryFusionRetriever`**；拒答阈值留 T046，仅无候选时 NO_EVIDENCE）
 - [x] T046 [US2] Qwen3-VL-Reranker cross-encoder Top-5（先 AutoMerge 再 rerank）+ 拒答门 于 `src/rag/rerank.py`（依赖 T045）✅（重排/Top-K/sigmoid 统一分/拒答门(top<min_score→LOW_CONFIDENCE)纯逻辑本地测；上游已拒答则透传；`score_fn` 可注入，CrossEncoder 后端守卫待 AutoDL）
 - [x] T047 [US2] **真实 medical_qa 接回骨架/MCP**（带引用，替换桩）于 `src/serve/qa.py`（依赖 T046）✅（`MedicalQA`：检索(T045)→精排+拒答(T046)→**复用 `assemble_report`** 出带 [S*] 引用回答、无据标 uncertain/低置信拒答；`Pipeline(qa_service=)` 路由→MCP `medical_qa` 自动走真实路，默认仍桩向后兼容；检索/精排/草稿全可注入故本地端到端测）
-- [ ] T048 [P] [US2] 集成测试：药品/医学问题 → 带引用且不超出来源 于 `tests/integration/test_qa_cited.py`
+- [x] T048 [P] [US2] 集成测试：药品/医学问题 → 带引用且不超出来源 于 `tests/integration/test_qa_cited.py` ✅（端到端串 T043→T044→T045→T046→T047：带引用回答、证据皆为已索引真实节点、伪造引用→uncertain不编造来源、无关问题拒答、低置信拒答不调LLM、pipeline/MCP 包络）
 
 **Checkpoint**: US1 与 US2 各自独立可用
 
