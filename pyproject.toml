@@ -30,30 +30,39 @@ data = [
 # ── 模型/训练（US1 + AutoDL GPU）：上 GPU 再装 ─────────────────
 train = [
     "torch>=2.3",
-    "transformers>=4.46",
+    "transformers>=4.46",   # Qwen3-VL；B 接线对照实装版本 vendor modeling_qwen3_vl.py
     "peft>=0.11",
     "accelerate>=0.30",
     "deepspeed>=0.14",      # 多卡 ZeRO-2，默认关
+    "bitsandbytes>=0.43",   # 4bit 量化（qwen3vl BitsAndBytesConfig）
+    "modelscope>=1.14",     # 权重下载
+    "pillow>=10.0",         # 图像处理
+    # 训练框架（二选一）：ms-swift（pip）或 LLaMA-Factory（baseline_lora.yaml 为 LF 格式）
+    "ms-swift>=2.0",
 ]
 
 # ── RAG 检索栈（US1 视觉检索 / US2 文本检索）：建库时再装 ─────────
 rag = [
-    "llama-index>=0.11",
-    "chromadb>=0.5",
-    "rank-bm25>=0.2",
+    "llama-index-core>=0.11",       # T043 父子分块 HierarchicalNodeParser
+    "chromadb>=0.5",                # T013 向量库
+    "rank-bm25>=0.2",               # T045 BM25 通道
+    "sentence-transformers>=3.0",   # T014 文本嵌入 / T046 CrossEncoder 精排
+    "open_clip_torch>=2.24",        # T031 图像嵌入（BiomedCLIP）
 ]
 
 # ── 评估 harness（US3）：评估阶段再装 ────────────────────────
 eval = [
     "ragas>=0.2",
-    "scipy>=1.13",          # bootstrap CI / 配对显著性
-    "scikit-learn>=1.4",    # coreset K-means / silhouette
+    "langchain-openai>=0.1",  # T051 ragas 裁判走 DashScope（OpenAI 兼容）
+    "scipy>=1.13",            # bootstrap CI / 配对显著性
+    "scikit-learn>=1.4",      # coreset K-means / silhouette
 ]
 
 # ── 开发/测试 ──────────────────────────────────────────────
 dev = [
     "pytest>=8.0",
     "langchain-mcp-adapters>=0.1",  # 骨架冒烟测试里 LangGraph 连通（未装则 skip）
+    "pyyaml>=6.0",                  # config.py 读 yaml 配置（守卫导入）
 ]
 
 [tool.setuptools.packages.find]

@@ -1,0 +1,2 @@
+# Shell scripts MUST stay LF so they run on AutoDL/Linux (CRLF breaks the shebang).
+*.sh text eol=lf
