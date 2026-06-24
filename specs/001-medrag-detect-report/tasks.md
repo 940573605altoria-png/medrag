@@ -175,10 +175,10 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 - [ ] T063 [P] 数据管线单测（dedup/ner_quality/ct_label/inpaint 抗泄露）于 `tests/unit/test_data.py`
 - [ ] T064 [P] 模型单测（损失形状、B 门控 α 初始0 等价预训练分布、三臂 token 数）于 `tests/unit/test_models.py`
 - [ ] T065 [P] 检索单测（hybrid RRF、级联、rerank、拒答门）于 `tests/unit/test_rag.py`
-- [ ] T066 [P] 编写 quickstart（env→建库→训练→评估→服务）于 `specs/001-medrag-detect-report/quickstart.md`
-- [ ] T067 安全加固：贯查无 PHI 入日志/向量库/MCP 传输（FR-007）于 `src/`
+- [x] T066 [P] 编写 quickstart（env→建库→训练→评估→服务）于 `specs/001-medrag-detect-report/quickstart.md` ✅（🟢本地/🟡AutoDL 分级标注全流程）
+- [x] T067 安全加固：贯查无 PHI 入日志/向量库/MCP 传输（FR-007）于 `src/` ✅（**本地护栏部分**：ingestion 前置 deidentify + `assert_no_phi`；端到端测 PHI 不入向量库/不进检索证据/不送外部 LLM。生产 MCP 传输层审计归 T060 🟡）
 - [x] T068 [P] 可复现验证：固定 seed + 锁版本复现评估记录 于 `tests/integration/test_repro.py` ✅（bootstrap/置换检验同 seed 两跑一致、run_eval 确定性、EvalRecord 落盘读回 flatten 相等、消融两跑 delta/p 一致）
-- [ ] T069 Constitution 门复核：溯源(I)/防泄露·训推一致(II)/基线·一次一变量消融(III)
+- [x] T069 Constitution 门复核：溯源(I)/防泄露·训推一致(II)/基线·一次一变量消融(III) ✅（`constitution-review.md`：三铁律逐项映射到落地代码+测试，🟢已强制/🟡待AutoDL；核心机制均代码层强制+本地测覆盖）
 
 ---
 
