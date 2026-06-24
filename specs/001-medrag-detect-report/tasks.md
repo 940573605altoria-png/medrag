@@ -59,7 +59,7 @@ description: "Task list for 医学多模态病灶检测与报告生成系统"
 **⚠️ CRITICAL**: 未完成前，骨架与 user story 均不得开工
 
 - [x] T007 **定义共享数据契约/接口 schema**（`ROI`/`DetectionResult`(热图/框/面积带/置信)、`EvidenceItem`(source_id/score/citation/modality)、`RetrievalResult`(含 abstain)、`ReportResult`(结构化+每条结论证据链+不确定标注)、MCP `ToolIO`、`EvalRecord`、`KnowledgeNode`/`CTSample` 元数据）于 `src/contracts/schemas.py` ✅
-- [ ] T008 实现 a/b/c 原始数据 ingestion 加载器于 `src/data/ingest.py`
+- [x] T008 实现 a/b/c 原始数据 ingestion 加载器于 `src/data/ingest.py` ✅（jsonl 读 + a/b/c 适配；`ingest_documents`/`ingest_qa` 把 归一化→去标识→去重→(b)QA冲突→NER质量筛 串成可消融管线，全程覆盖护栏(FR-012)、PHI 前置(FR-007)；NER/judge/merge 可注入故纯逻辑本地测）
 - [x] T009 [P] PHI 去标识化（FR-007）于 `src/data/deid.py` ✅（高精度正则抹手机/身份证/邮箱/带标签字段，剂量不动；`has_phi`/`assert_no_phi` 外发硬护栏；纯逻辑本地全测）
 - [ ] T010 [P] 病灶面积分层工具（`<2%/2–5%/>5%`）于 `src/data/stratify.py`
 - [x] T011 Qwen3-VL 基座封装/加载器（processor、LoRA 挂载、共享 ViT 取特征）于 `src/models/qwen3vl.py` ✅（4B 已 AutoDL L1 PASS；30B 需 A100-80G）
