@@ -48,6 +48,9 @@ shell commands, and other important information, read the current plan
 - **T011 `models/qwen3vl.py`**：4B 已 `L1 PASS`；30B-A3B 需 A100-80G 级 + 扩盘。
 - **T013/T024–T027**：本地依赖(cv2/sklearn/chromadb)已装、测过；真实 CT 图/真实建库的功能性跑仍在 AutoDL。
 - **T051 ragas 裁判段**：检索指标本地测过；ragas 真打分需 `pip install ragas langchain-openai` + `DASHSCOPE_API_KEY`（联网，本地或 AutoDL 皆可）。
+- **US2 文本 RAG 链（2026-06-24 开工）**：纯逻辑/格式化部分本地测过，**功能跑需 AutoDL 装模型/重库**：
+  - **T014 `rag/embed_text.py`**：`format_query`/`l2_normalize` 纯逻辑测过；真实嵌入需 `pip install sentence-transformers` + Qwen3-Embedding 4B 权重（`TextEmbedder` 后端守卫导入；本地测用注入 `encode_fn` 桩）。
+  - **T043 `rag/chunk.py`**：QA 分块 `chunk_qa` 纯逻辑全测；文档路 `hierarchical_chunk_documents` 需 `pip install llama-index-core`（`HierarchicalNodeParser`，守卫导入）。
 
 ## 已敲定的核心决策（不要推翻，除非用户改主意）
 - **B 双路融合**：解决病灶特征被背景稀释。全局图 + ROI 放缩图在 merger 后的视觉 token 层融合。
